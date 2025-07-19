@@ -183,10 +183,6 @@ export async function POST(request: NextRequest) {
           })
         });
         
-        logger.info(`✅ Video analysis API success`, { 
-          success: videoAnalysisResult.success ? 'Success' : 'Failed' 
-        });
-        
         if (!videoAnalysisResponse.ok) {
           const errorText = await videoAnalysisResponse.text();
           logger.error(`❌ Video analysis API error: ${videoAnalysisResponse.status} - ${errorText}`);
@@ -194,10 +190,14 @@ export async function POST(request: NextRequest) {
         }
         
         videoAnalysisResult = await videoAnalysisResponse.json();
-        logger.info('Failed');
         
-        // 🚨 핵심 수정: API 응답은 받았지만 분석이 실패한 경우 처리
-        if (!videoAnalysisResult.success) {
+        logger.info(`✅ Video analysis API response received`, { 
+          success: videoAnalysisResult?.success ? 'Success' : 'Failed',
+          hasResult: !!videoAnalysisResult
+        });
+        
+        // 안전한 결과 확인 (undefined 체크 포함)
+        if (!videoAnalysisResult || !videoAnalysisResult.success) {
           throw new Error(
             videoAnalysisResult.message || 
             videoAnalysisResult.error || 

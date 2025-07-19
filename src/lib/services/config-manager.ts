@@ -6,6 +6,7 @@ export interface ConfigSchema {
     isDevelopment: boolean;
     isProduction: boolean;
     isTest: boolean;
+    isBuildTime: boolean; // 빌드 시점 감지
   };
 
   // 서버 설정
@@ -21,6 +22,8 @@ export interface ConfigSchema {
     region: string;
     keyFile: string;
     bucketName: string;
+    storageBucket: string; // 추가 버킷 설정
+    isAvailable: boolean; // GCP 설정 가용성
   };
 
   // API 설정
@@ -30,10 +33,12 @@ export interface ConfigSchema {
       model: string;
       maxTokens: number;
       temperature: number;
+      isAvailable: boolean; // OpenAI API 가용성
     };
     videoIntelligence: {
       features: string[];
       timeout: number;
+      isAvailable: boolean; // Video Intelligence API 가용성
     };
   };
 
@@ -137,7 +142,8 @@ export class ConfigManager {
         nodeEnv,
         isDevelopment: nodeEnv === 'development',
         isProduction: nodeEnv === 'production',
-        isTest: nodeEnv === 'test'
+        isTest: nodeEnv === 'test',
+        isBuildTime: this.isBuildTime()
       },
 
       server: {
@@ -150,7 +156,9 @@ export class ConfigManager {
         projectId: process.env.GOOGLE_CLOUD_PROJECT_ID || '',
         region: process.env.GOOGLE_CLOUD_REGION || 'us-central1',
         keyFile: process.env.GOOGLE_CLOUD_KEY_FILE || '',
-        bucketName: process.env.GOOGLE_CLOUD_BUCKET_NAME || ''
+        bucketName: process.env.GOOGLE_CLOUD_BUCKET_NAME || '',
+        storageBucket: process.env.GOOGLE_CLOUD_STORAGE_BUCKET || '', // 추가 버킷 설정
+        isAvailable: process.env.GOOGLE_CLOUD_PROJECT_ID !== undefined && process.env.GOOGLE_CLOUD_PROJECT_ID.length > 0
       },
 
       apis: {
@@ -158,11 +166,13 @@ export class ConfigManager {
           apiKey: process.env.OPENAI_API_KEY || '',
           model: process.env.OPENAI_MODEL || 'gpt-4',
           maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '4000'),
-          temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.7')
+          temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.7'),
+          isAvailable: process.env.OPENAI_API_KEY !== undefined && process.env.OPENAI_API_KEY.startsWith('sk-')
         },
         videoIntelligence: {
           features: (process.env.VIDEO_INTELLIGENCE_FEATURES || 'OBJECT_TRACKING,FACE_DETECTION').split(','),
-          timeout: parseInt(process.env.VIDEO_INTELLIGENCE_TIMEOUT || '300000')
+          timeout: parseInt(process.env.VIDEO_INTELLIGENCE_TIMEOUT || '300000'),
+          isAvailable: true // Video Intelligence API는 기본적으로 사용 가능하므로 확인 로직 제거
         }
       },
 

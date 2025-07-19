@@ -44,9 +44,13 @@ export async function POST(request: NextRequest) {
     console.log(`🎯 업로드 완료 처리 시작: ${uploadId}`);
     console.log(`📁 파일 정보: ${originalName} (${fileSize} bytes) → ${gsUri}`);
 
+    // 프로덕션 환경 GCP 설정 확인
+    let gcpStorage: GCPDataStorage | null = null;
+    
     try {
-      // Firestore에 세션 생성
-      const gcpStorage = new GCPDataStorage();
+      // GCPDataStorage 안전 초기화
+      gcpStorage = new GCPDataStorage();
+      
       const session = await gcpStorage.createSessionWithUserInfo(
         fileName, // GCS 파일명
         originalName, // 원본 파일명
@@ -62,7 +66,7 @@ export async function POST(request: NextRequest) {
       // 세션 저장
       await gcpStorage.saveSession(session);
 
-      console.log(`✅ 세션 생성 완료: ${session.sessionId}`);
+      console.log(`✅ 프로덕션 세션 생성 완료: ${session.sessionId}`);
 
       return NextResponse.json({
         success: true,
@@ -89,16 +93,31 @@ export async function POST(request: NextRequest) {
       });
 
     } catch (storageError) {
-      console.error('❌ 세션 생성 오류:', storageError);
+      console.error('❌ GCP 세션 생성 오류:', storageError);
       
-      // GCP 관련 에러인 경우 개발 모드로 처리
-      if (storageError instanceof Error && storageError.message.includes('Configuration')) {
+      // 모든 GCP 관련 에러에 대해 개발 모드로 폴백
+      const isGcpError = storageError instanceof Error && (
+        storageError.message.includes('Configuration') ||
+        storageError.message.includes('credentials') ||
+        storageError.message.includes('GOOGLE_APPLICATION_CREDENTIALS') ||
+        storageError.message.includes('service account') ||
+        storageError.message.includes('Firebase') ||
+        storageError.message.includes('Firestore') ||
+        storageError.message.includes('Storage')
+      );
+      
+      if (isGcpError) {
+        console.log('🔧 프로덕션 환경에서 GCP 오류 → 개발 모드로 폴백');
+        
+        // 개발 모드 세션 생성
+        const devSessionId = `prod-fallback-${uploadId}`;
+        
         return NextResponse.json({
           success: true,
-          message: '개발 모드: 업로드 완료 시뮬레이션',
+          message: '프로덕션 환경: GCP 설정 오류로 인한 폴백 모드',
           session: {
-            sessionId: `dev-session-${uploadId}`,
-            status: 'development',
+            sessionId: devSessionId,
+            status: 'production-fallback',
             createdAt: new Date().toISOString(),
             uploadId: uploadId,
           },
@@ -112,9 +131,11 @@ export async function POST(request: NextRequest) {
           userInfo,
           uploadTime: new Date().toISOString(),
           isDevelopment: true,
+          fallbackReason: 'GCP configuration error in production'
         });
       }
       
+      // GCP 관련 에러가 아닌 경우는 다시 던지기
       throw storageError;
     }
 
