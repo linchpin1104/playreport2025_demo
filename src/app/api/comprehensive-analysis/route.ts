@@ -149,11 +149,11 @@ export async function POST(request: NextRequest) {
     try {
       // 기존 분석 결과가 있는지 확인
       const existingCore = await storage.getPlayCore(sessionId);
-      if (existingCore && existingCore.analysis) {
+      if (existingCore && existingCore.rawData) {
         console.log('🔍 Found existing analysis results, using cached data');
         videoAnalysisResult = {
           success: true,
-          analysisResults: existingCore.analysis,
+          analysisResults: existingCore.rawData,
           metadata: {
             fileName: sessionData.metadata.fileName,
             sessionId: sessionId,
@@ -313,9 +313,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('❌ Comprehensive analysis error:', error);
     
-    // 에러 발생시에도 기본 응답 반환
+    // 에러 발생시에도 기본 응답 반환 (sessionId가 정의되지 않은 경우를 대비)
+    const errorSessionId = typeof sessionId !== 'undefined' ? sessionId : 'unknown';
     return NextResponse.json({
-      sessionId: sessionId || 'unknown',
+      sessionId: errorSessionId,
       status: 'error',
       steps: ANALYSIS_STEPS.map(step => ({
         step: step.id,

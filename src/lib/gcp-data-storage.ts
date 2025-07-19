@@ -1164,7 +1164,7 @@ export class GCPDataStorage {
     search?: string;
   }): Promise<PlayAnalysisSession[]> {
     try {
-      let query = this.firestore.collection(this.SESSIONS_COLLECTION);
+      let query: any = this.firestore.collection(this.SESSIONS_COLLECTION);
 
       // 상태 필터링
       if (options?.status) {
@@ -1185,7 +1185,7 @@ export class GCPDataStorage {
       const snapshot = await query.get();
       const sessions: PlayAnalysisSession[] = [];
 
-      snapshot.forEach(doc => {
+      snapshot.forEach((doc: any) => {
         const data = doc.data() as PlayAnalysisSession;
         
         // 검색 필터링 (클라이언트 사이드)
@@ -1194,7 +1194,7 @@ export class GCPDataStorage {
           const matchesSearch = 
             data.metadata.originalName.toLowerCase().includes(searchLower) ||
             data.sessionId.toLowerCase().includes(searchLower) ||
-            (data.tags && data.tags.some(tag => tag.toLowerCase().includes(searchLower)));
+            (data.tags && data.tags.some((tag: string) => tag.toLowerCase().includes(searchLower)));
           
           if (matchesSearch) {
             sessions.push(data);
@@ -1216,7 +1216,7 @@ export class GCPDataStorage {
    */
   async getSessionCount(status?: string): Promise<number> {
     try {
-      let query = this.firestore.collection(this.SESSIONS_COLLECTION);
+      let query: any = this.firestore.collection(this.SESSIONS_COLLECTION);
 
       if (status) {
         query = query.where('metadata.status', '==', status);

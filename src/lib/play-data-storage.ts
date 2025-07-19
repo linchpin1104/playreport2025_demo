@@ -496,22 +496,35 @@ export class PlayDataStorage {
       throw new Error(`Session not found: ${sessionId}`);
     }
 
-    // 세션 인덱스 파일이 있는지 확인
-    sessionData.comprehensiveAnalysis = sessionData.comprehensiveAnalysis || {};
-    
-    if (!sessionData.comprehensiveAnalysis.status) {
+    // 세션 종합 분석 객체 초기화
+    if (!sessionData.comprehensiveAnalysis) {
+      sessionData.comprehensiveAnalysis = {
+        status: status,
+        startTime: new Date().toISOString(),
+        currentStep: currentStep || 'unknown',
+        progress: progress || 0,
+        steps: steps || []
+      };
+    } else {
+      // 기존 객체가 있으면 업데이트
       sessionData.comprehensiveAnalysis.status = status;
+      if (progress !== undefined) {
+        sessionData.comprehensiveAnalysis.progress = progress;
+      }
+      if (currentStep) {
+        sessionData.comprehensiveAnalysis.currentStep = currentStep;
+      }
+      if (steps) {
+        sessionData.comprehensiveAnalysis.steps = steps;
+      }
     }
-    if (!sessionData.comprehensiveAnalysis.progress) {
-      sessionData.comprehensiveAnalysis.progress = progress || 0;
-    }
-    if (!sessionData.comprehensiveAnalysis.currentStep) {
-      sessionData.comprehensiveAnalysis.currentStep = currentStep || 'unknown';
-    }
-    if (steps) sessionData.comprehensiveAnalysis.steps = steps;
+
+    // 완료 또는 에러 상태일 때 종료 시간 설정
     if (status === 'completed' || status === 'error') {
       sessionData.comprehensiveAnalysis.endTime = new Date().toISOString();
     }
+    
+    // 에러 정보 추가
     if (error && status === 'error') {
       sessionData.comprehensiveAnalysis.error = error;
     }
