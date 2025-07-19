@@ -245,6 +245,7 @@ export interface PlayReport {
 // Play Analysis Session Types
 export interface PlayAnalysisSession {
   sessionId: string;
+  userInfo?: UserInfo;
   metadata: {
     fileName: string;
     originalName: string;
@@ -252,12 +253,16 @@ export interface PlayAnalysisSession {
     uploadedAt: string;
     analyzedAt: string;
     lastUpdated: string;
-    status: 'uploaded' | 'processing' | 'completed' | 'failed';
+    status: 'uploaded' | 'processing' | 'completed' | 'failed' | 'core_extracted' | 'voice_analyzed' | 'evaluation_completed' | 'integrated_analysis_completed' | 'report_generated';
   };
   paths: {
     videoUrl?: string;
     thumbnailUrl?: string;
     analysisDataUrl?: string;
+    corePath?: string;
+    voiceAnalysisPath?: string;
+    evaluationPath?: string;
+    integratedAnalysisPath?: string;
   };
   analysis: {
     participantCount: number;
@@ -270,6 +275,11 @@ export interface PlayAnalysisSession {
     processingSteps?: string[];
   };
   tags: string[];
+  
+  // Optional extended analysis data
+  voiceAnalysis?: any;
+  evaluation?: PlayEvaluationResult;
+  integratedAnalysis?: IntegratedAnalysisResult;
 }
 
 // Play Evaluation Result

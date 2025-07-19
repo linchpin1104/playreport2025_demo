@@ -571,7 +571,7 @@ export class GCPDataStorage {
 
     // tracks 배열 정리
     if (Array.isArray(detection.tracks)) {
-      const cleanedTracks = detection.tracks.map(track => {
+      const cleanedTracks = detection.tracks.map((track: any) => {
         if (!track || typeof track !== 'object') {return null;}
         
         const cleanedTrack: any = {};
@@ -754,38 +754,22 @@ export class GCPDataStorage {
   }
 
   /**
-   * 📝 전체 세션 목록 조회
-   */
-  async getAllSessions(): Promise<PlayAnalysisSession[]> {
-    try {
-      const snapshot = await this.firestore
-        .collection(this.SESSIONS_COLLECTION)
-        .orderBy('metadata.lastUpdated', 'desc')
-        .get();
-
-      return snapshot.docs.map(doc => doc.data() as PlayAnalysisSession);
-    } catch (error) {
-      console.error('❌ Error getting all sessions:', error);
-      return [];
-    }
-  }
-
-  /**
    * 🔍 세션 검색
    */
   async searchSessions(query: string): Promise<PlayAnalysisSession[]> {
     try {
-      const snapshot = await this.firestore
-        .collection(this.SESSIONS_COLLECTION)
-        .where('metadata.originalName', '>=', query)
-        .where('metadata.originalName', '<=', `${query  }\uf8ff`)
-        .limit(50)
-        .get();
-
-      return snapshot.docs.map(doc => doc.data() as PlayAnalysisSession);
+      // Firestore는 full-text search가 제한적이므로 클라이언트 측에서 필터링
+      const allSessions = await this.getAllSessions();
+      
+      return allSessions.filter(session => 
+        session.metadata.originalName.toLowerCase().includes(query.toLowerCase()) ||
+        session.sessionId.toLowerCase().includes(query.toLowerCase()) ||
+        session.userInfo?.childName?.toLowerCase().includes(query.toLowerCase()) ||
+        session.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()))
+      );
     } catch (error) {
-      console.error('❌ Error searching sessions:', error);
-      return [];
+      console.error('Error searching sessions:', error);
+      throw new Error(`세션 검색 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     }
   }
 
