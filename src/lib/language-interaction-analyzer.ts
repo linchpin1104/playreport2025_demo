@@ -206,7 +206,10 @@ export class LanguageInteractionAnalyzer {
           });
         }
       } catch (entryError) {
-        logger.warn('⚠️ transcript 항목 처리 중 오류:', entryError instanceof Error ? entryError : new Error(String(entryError)));
+        logger.warn('⚠️ transcript 항목 처리 중 오류:', { 
+          error: entryError instanceof Error ? entryError.message : String(entryError),
+          stack: entryError instanceof Error ? entryError.stack : undefined
+        });
         continue;
       }
     }
@@ -291,7 +294,9 @@ export class LanguageInteractionAnalyzer {
     // 턴테이킹 분석
     for (let i = 1; i < transcript.length; i++) {
       if (transcript[i].speaker !== transcript[i-1].speaker) {
-        const responseTime = transcript[i].startTime - transcript[i-1].endTime;
+        const currentStartTime = transcript[i].startTime ?? transcript[i].time ?? 0;
+        const previousEndTime = transcript[i-1].endTime ?? transcript[i-1].time ?? 0;
+        const responseTime = currentStartTime - previousEndTime;
         patterns.responseTimes.push(responseTime);
         patterns.turnTaking.push({
           from: transcript[i-1].speaker,
@@ -304,7 +309,9 @@ export class LanguageInteractionAnalyzer {
 
     // 대화 시작 횟수 (3초 이상 간격이면 새로운 대화 시작으로 간주)
     for (let i = 0; i < transcript.length; i++) {
-      if (i === 0 || transcript[i].startTime - transcript[i-1].endTime > 3.0) {
+      const currentStartTime = transcript[i].startTime ?? transcript[i].time ?? 0;
+      const previousEndTime = i > 0 ? (transcript[i-1].endTime ?? transcript[i-1].time ?? 0) : 0;
+      if (i === 0 || currentStartTime - previousEndTime > 3.0) {
         const speaker = transcript[i].speaker;
         patterns.initiationCount[speaker] = (patterns.initiationCount[speaker] ?? 0) + 1;
       }
@@ -414,7 +421,11 @@ export class LanguageInteractionAnalyzer {
     // 모든 텍스트에서 단어 추출
     for (const entry of transcript) {
       if (!entry?.text || typeof entry.text !== 'string') {
-        logger.warn('⚠️ 키워드 분석 중 잘못된 transcript 항목:', entry);
+        logger.warn('⚠️ 키워드 분석 중 잘못된 transcript 항목:', {
+          speaker: entry?.speaker,
+          text: entry?.text,
+          time: entry?.time
+        });
         continue;
       }
       
@@ -482,7 +493,11 @@ export class LanguageInteractionAnalyzer {
     // 발화 분류
     for (const entry of transcript) {
       if (!entry?.text || typeof entry.text !== 'string') {
-        logger.warn('⚠️ 잘못된 transcript 항목:', entry);
+        logger.warn('⚠️ 잘못된 transcript 항목:', {
+          speaker: entry?.speaker,
+          text: entry?.text,
+          time: entry?.time
+        });
         continue;
       }
       
@@ -493,11 +508,9 @@ export class LanguageInteractionAnalyzer {
         classification[speaker] = {
           total_utterances: 0,
           questions: 0,
-          initiations: 0,
-          positive_words: 0,
-          negative_words: 0,
-          complex_sentences: 0,
-          simple_sentences: 0
+          instructions: 0,
+          emotional_expressions: 0,
+          praise_encouragement: 0
         };
       }
       
@@ -571,7 +584,7 @@ export class LanguageInteractionAnalyzer {
    */
   private calculateOverallQualityScore(
     speakerStats: Record<string, SpeakerStats>,
-    utteranceClassification: UtteranceClassification,
+    utteranceClassification: Record<string, UtteranceClassification>,
     keywordAnalysis: KeywordAnalysis,
     interactionPatterns: ConversationPattern,
     complexity: {
