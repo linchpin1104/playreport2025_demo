@@ -1,14 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '300mb',
-    },
+  typescript: {
+    ignoreBuildErrors: true,
   },
-  
-  // Webpack configuration for better module resolution
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   webpack: (config, { isServer }) => {
-    // Fallback for server-side modules
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -16,56 +14,42 @@ const nextConfig = {
         net: false,
         tls: false,
         crypto: false,
-        stream: false,
-        util: false,
-        url: false,
-        zlib: false,
-        http: false,
-        https: false,
-        assert: false,
-        os: false,
-        path: false,
       };
     }
 
-    // Ensure proper module resolution
+    // Add alias for @ path
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': require('path').resolve(__dirname, 'src'),
+      '@': path.resolve(__dirname, './src'),
     };
 
     // Ignore specific warnings
     config.ignoreWarnings = [
-      /Critical dependency: the request of a dependency is an expression/,
-      /Module not found: Can't resolve/,
+      { module: /node_modules\/formidable/ },
+      { module: /node_modules\/multer/ },
     ];
 
     return config;
   },
-  
-  // Environment variables
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
-  },
-  
-  // TypeScript and ESLint configuration - more lenient for build
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  
-  // Output configuration for better compatibility
-  output: 'standalone',
-  
-  // Additional build optimizations
   swcMinify: true,
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn'],
+      exclude: ['error', 'warn']
     } : false,
   },
+  // Server Actions 설정 - App Router용
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '350mb',
+      allowedOrigins: [
+        'localhost:3000',
+        '*.vercel.app',
+        ...(process.env.VERCEL_URL ? [process.env.VERCEL_URL] : [])
+      ],
+    },
+  },
 };
+
+const path = require('path');
 
 module.exports = nextConfig;

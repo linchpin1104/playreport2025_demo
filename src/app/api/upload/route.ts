@@ -1,18 +1,57 @@
 import { Storage } from '@google-cloud/storage';
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import config from '@/lib/config';
+import { ConfigManager } from '@/lib/services/config-manager';
 import { GCPDataStorage } from '@/lib/gcp-data-storage';
 import { UserInfo } from '@/types';
 
-// Initialize Google Cloud Storage
-const storage = new Storage({
-  projectId: config.googleCloud.projectId,
-  keyFilename: config.googleCloud.keyFile,
-});
+// Next.js App Router Route Segment Config
+export const runtime = 'nodejs';
+export const maxDuration = 300; // 5분 제한 (Vercel Pro 플랜 필요)
+export const dynamic = 'force-dynamic'; // 항상 동적 처리  
+export const revalidate = 0; // 캐시 비활성화
+
+// Google Cloud Storage 인스턴스 (런타임에 초기화)
+let storage: Storage | null = null;
+
+function initializeStorage() {
+  if (storage) return storage;
+  
+  try {
+    const configManager = ConfigManager.getInstance();
+    
+    if (!configManager.isConfigAvailable('gcp.keyFile') || !configManager.isConfigAvailable('gcp.projectId')) {
+      console.warn('⚠️ GCP 설정이 없습니다. 로컬 개발 모드로 실행됩니다.');
+      return null;
+    }
+
+    storage = new Storage({
+      projectId: configManager.get('gcp.projectId'),
+      keyFilename: configManager.get('gcp.keyFile'),
+    });
+    
+    return storage;
+  } catch (error) {
+    console.error('❌ Google Cloud Storage 초기화 실패:', error);
+    return null;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
+    // 파일 크기 체크를 먼저 수행 (메모리 절약)
+    const contentLength = request.headers.get('content-length');
+    const maxSize = 300 * 1024 * 1024; // 300MB
+    
+    if (contentLength && parseInt(contentLength) > maxSize) {
+      return NextResponse.json(
+        { success: false, error: '파일 크기가 300MB를 초과합니다.' },
+        { status: 413 } // Request Entity Too Large
+      );
+    }
+
+    console.log('📤 파일 업로드 요청 시작...');
+    
     const formData = await request.formData();
     const file = formData.get('video') as File;
     const userInfoString = formData.get('userInfo') as string;
@@ -51,20 +90,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (300MB limit)
-    const maxSize = 300 * 1024 * 1024; // 300MB
+    // Validate file size (after FormData parsing)
     if (file.size > maxSize) {
       return NextResponse.json(
         { success: false, error: '파일 크기가 300MB를 초과합니다.' },
-        { status: 400 }
+        { status: 413 } // Request Entity Too Large
       );
+    }
+
+    console.log(`📁 파일 정보: ${file.name} (${file.size} bytes, ${file.type})`);
+
+    // Google Cloud Storage 초기화
+    const storageInstance = initializeStorage();
+    
+    if (!storageInstance) {
+      // GCP 설정이 없는 경우 - 개발 모드
+      console.warn('⚠️ GCP 미설정 - 로컬 개발 모드로 처리');
+      
+      return NextResponse.json({
+        success: true,
+        message: '개발 모드: 파일 업로드 시뮬레이션',
+        fileName: `dev-${Date.now()}.${file.name.split('.').pop()}`,
+        gsUri: `gs://dev-bucket/videos/dev-${Date.now()}.${file.name.split('.').pop()}`,
+        originalName: file.name,
+        fileSize: file.size,
+        contentType: file.type,
+        uploadTime: new Date().toISOString(),
+        userInfo,
+        session: {
+          sessionId: `dev-session-${Date.now()}`,
+          status: 'development',
+          createdAt: new Date().toISOString()
+        }
+      });
     }
 
     // Generate unique filename
     const fileExtension = file.name.split('.').pop();
     const uniqueFileName = `${uuidv4()}.${fileExtension}`;
-    const bucketName = config.googleCloud.storageBucket;
-    const bucket = storage.bucket(bucketName);
+    
+    const configManager = ConfigManager.getInstance();
+    const bucketName = configManager.get('gcp.storageBucket');
+    const bucket = storageInstance.bucket(bucketName);
     const file_upload = bucket.file(`videos/${uniqueFileName}`);
     
     // Convert File to Buffer
