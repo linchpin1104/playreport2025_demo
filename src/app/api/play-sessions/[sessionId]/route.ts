@@ -1,6 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GCPDataStorage } from '@/lib/gcp-data-storage';
 
+// Fallback 세션 감지 및 Mock 데이터 생성
+function createMockSessionData(sessionId: string) {
+  const now = new Date().toISOString();
+  
+  return {
+    sessionId,
+    metadata: {
+      status: 'uploaded',
+      uploadedAt: now,
+      fileName: 'mock-video.mp4',
+      fileSize: 50 * 1024 * 1024, // 50MB
+      contentType: 'video/mp4',
+      uploadId: sessionId.split('-').pop() || 'mock-upload-id',
+      userInfo: {
+        caregiverName: '테스트 양육자',
+        childName: '테스트 아이',
+        childAge: 3
+      }
+    },
+    paths: {
+      rawDataPath: `gs://mock-bucket/videos/${sessionId}.mp4`,
+      processedDataPath: null,
+      thumbnailPath: null,
+      analysisResultPath: null
+    },
+    results: {
+      videoAnalysis: null,
+      languageAnalysis: null,
+      comprehensiveAnalysis: null,
+      lastUpdated: now
+    },
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+// Fallback 세션인지 확인
+function isFallbackSession(sessionId: string): boolean {
+  return sessionId.includes('prod-fallback-') || 
+         sessionId.includes('dev-session-') || 
+         sessionId.includes('dev-upload-');
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { sessionId: string } }
@@ -17,22 +60,52 @@ export async function GET(
 
     console.log(`📋 Fetching session: ${sessionId}`);
 
-    const gcpStorage = new GCPDataStorage();
-    const session = await gcpStorage.getSession(sessionId);
-
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: '세션을 찾을 수 없습니다.' },
-        { status: 404 }
-      );
+    // Fallback 세션인 경우 Mock 데이터 반환
+    if (isFallbackSession(sessionId)) {
+      console.log(`🔧 Detected fallback session: ${sessionId} → returning mock data`);
+      const mockSession = createMockSessionData(sessionId);
+      
+      return NextResponse.json({
+        success: true,
+        session: mockSession,
+        isMockData: true,
+        fallbackReason: 'GCP configuration unavailable'
+      });
     }
 
-    console.log(`✅ Session found: ${sessionId}`);
+    // 실제 GCP 세션 조회 시도
+    try {
+      const gcpStorage = new GCPDataStorage();
+      const session = await gcpStorage.getSession(sessionId);
 
-    return NextResponse.json({
-      success: true,
-      session
-    });
+      if (!session) {
+        return NextResponse.json(
+          { success: false, error: '세션을 찾을 수 없습니다.' },
+          { status: 404 }
+        );
+      }
+
+      console.log(`✅ Session found: ${sessionId}`);
+
+      return NextResponse.json({
+        success: true,
+        session
+      });
+
+    } catch (gcpError) {
+      console.error(`❌ GCP session retrieval failed for ${sessionId}:`, gcpError);
+      
+      // GCP 오류 시 Mock 세션으로 폴백
+      console.log(`🔧 GCP error → creating mock session for: ${sessionId}`);
+      const mockSession = createMockSessionData(sessionId);
+      
+      return NextResponse.json({
+        success: true,
+        session: mockSession,
+        isMockData: true,
+        fallbackReason: 'GCP storage error'
+      });
+    }
 
   } catch (error) {
     console.error(`❌ Session retrieval error for ${params.sessionId}:`, error);
