@@ -240,4 +240,126 @@ export interface PlayReport {
   childAge?: number;
   parentGender?: 'male' | 'female' | 'other';
   playType?: string;
+}
+
+// Play Analysis Session Types
+export interface PlayAnalysisSession {
+  sessionId: string;
+  metadata: {
+    fileName: string;
+    originalName: string;
+    fileSize: number;
+    uploadedAt: string;
+    analyzedAt: string;
+    lastUpdated: string;
+    status: 'uploaded' | 'processing' | 'completed' | 'failed';
+  };
+  paths: {
+    videoUrl?: string;
+    thumbnailUrl?: string;
+    analysisDataUrl?: string;
+  };
+  analysis: {
+    participantCount: number;
+    videoDuration: number;
+    safetyScore: number;
+    overallScore?: number;
+    keyInsights?: string[];
+    interactionQuality?: number;
+    completedAt?: string;
+    processingSteps?: string[];
+  };
+  tags: string[];
+}
+
+// Play Evaluation Result
+export interface PlayEvaluationResult {
+  evaluationId: string;
+  sessionId: string;
+  evaluatedAt: string;
+  scores: {
+    interactionQuality: number;
+    emotionalConnection: number;
+    developmentalSupport: number;
+    playEnvironment: number;
+    overall: number;
+  };
+  insights: {
+    strengths: string[];
+    improvements: string[];
+    recommendations: string[];
+  };
+  detailedAnalysis: {
+    participantAnalysis: ParticipantAnalysis[];
+    temporalAnalysis: TemporalAnalysis;
+    interactionPatterns: GCPInteractionPattern[];
+  };
+}
+
+// Analysis Report
+export interface AnalysisReport {
+  reportId: string;
+  sessionId: string;
+  generatedAt: string;
+  reportType: 'comprehensive' | 'quick' | 'detailed';
+  sections: {
+    executiveSummary: string;
+    keyFindings: string[];
+    recommendations: string[];
+    developmentGoals: string[];
+  };
+  scores: {
+    overall: number;
+    physical: number;
+    cognitive: number;
+    social: number;
+    emotional: number;
+  };
+  metadata: {
+    generationTime: number;
+    analysisVersion: string;
+    reportVersion: string;
+  };
+}
+
+// Re-export IntegratedAnalysisResult from its original location
+export type { IntegratedAnalysisResult } from '../lib/integrated-analysis-system';
+
+// Define supporting types locally to avoid circular dependencies
+export interface ParticipantAnalysis {
+  participantId: string;
+  role: 'parent' | 'child' | 'unknown';
+  engagementLevel: number;
+  emotionalState: number;
+  activityLevel: number;
+  behaviors: {
+    positive: string[];
+    concerning: string[];
+    neutral: string[];
+  };
+}
+
+export interface TemporalAnalysis {
+  segments: {
+    startTime: number;
+    endTime: number;
+    activityType: string;
+    intensity: number;
+    participants: string[];
+  }[];
+  totalDuration: number;
+  averageSegmentLength: number;
+  peakActivityPeriods: {
+    startTime: number;
+    endTime: number;
+    intensity: number;
+  }[];
+}
+
+export interface GCPInteractionPattern {
+  patternType: 'cooperative' | 'competitive' | 'parallel' | 'guided' | 'independent';
+  frequency: number;
+  duration: number;
+  quality: number;
+  examples: string[];
 } 
