@@ -1,21 +1,28 @@
 'use client';
 
-import { FileVideo, Upload, CheckCircle, AlertTriangle, User, Baby } from 'lucide-react';
+import { User, Baby, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { UserInfo } from '@/types';
+import LargeFileUploader from '@/components/large-file-uploader';
+
+interface UploadResult {
+  success: boolean;
+  sessionId: string;
+  gsUri: string;
+  fileName: string;
+  originalName: string;
+  fileSize: number;
+  uploadTime: string;
+  isDevelopment?: boolean;
+}
 
 export default function UploadPage() {
   const router = useRouter();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [success, setSuccess] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,85 +43,21 @@ export default function UploadPage() {
     }
   }, [router]);
 
-  const handleFileSelect = (file: File) => {
-    // 파일 타입 검증
-    if (!file.type.startsWith('video/')) {
-      setError('비디오 파일만 업로드할 수 있습니다.');
-      return;
-    }
-    
-    // 파일 크기 검증 (300MB 제한)
-    if (file.size > 300 * 1024 * 1024) {
-      setError('파일 크기는 300MB 이하여야 합니다.');
-      return;
-    }
-    
-    setSelectedFile(file);
-    setError(null);
-  };
+  const handleUploadComplete = (result: UploadResult) => {
+    if (result.success) {
+      console.log('🎉 대용량 업로드 성공:', result.sessionId);
+      setUploadSuccess(true);
+      setError(null);
 
-  const handleUpload = async () => {
-    if (!selectedFile || !userInfo) {return;}
+      // localStorage에서 임시 정보 제거
+      localStorage.removeItem('tempUserInfo');
 
-    setIsUploading(true);
-    setError(null);
-    setUploadProgress(0);
-
-    try {
-      // 업로드 진행 시뮬레이션
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      // FormData 생성
-      const formData = new FormData();
-      formData.append('video', selectedFile);
-      formData.append('userInfo', JSON.stringify(userInfo));
-
-      // 업로드 API 호출
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setUploadProgress(100);
-        setSuccess(true);
-        
-        // localStorage에서 임시 정보 제거
-        localStorage.removeItem('tempUserInfo');
-        
-        // 2초 후 분석 페이지로 이동
-        setTimeout(() => {
-          router.push(`/analysis?sessionId=${result.session.sessionId}`);
-        }, 2000);
-      } else {
-        throw new Error(result.error || '업로드에 실패했습니다.');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '업로드 중 오류가 발생했습니다.');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('video/')) {
-      handleFileSelect(file);
+      // 2초 후 분석 페이지로 이동
+      setTimeout(() => {
+        router.push(`/analysis?sessionId=${result.sessionId}`);
+      }, 2000);
+    } else {
+      setError('업로드가 실패했습니다.');
     }
   };
 
@@ -133,59 +76,58 @@ export default function UploadPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12">
       <div className="container mx-auto px-4 max-w-4xl">
+        {/* 제목 */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            놀이영상 업로드
+            📹 대용량 놀이영상 업로드
           </h1>
           <p className="text-gray-600">
-            분석할 놀이영상을 업로드해주세요
+            최대 500MB까지 업로드 가능합니다. 안전하고 빠른 클라우드 직접 업로드 방식을 사용합니다.
           </p>
         </div>
 
         {/* 사용자 정보 요약 */}
-        <Card className="mb-8">
+        <Card className="mb-8 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              입력된 정보
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <User className="w-5 h-5 text-blue-600" />
+              업로드 정보
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-500" />
-                  <span className="font-medium">양육자:</span>
-                  <span>{userInfo.caregiverName} ({userInfo.caregiverType})</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Baby className="w-4 h-4 text-gray-500" />
-                  <span className="font-medium">아이:</span>
-                  <span>{userInfo.childName} ({userInfo.childAge}세, {userInfo.childGender})</span>
+            <div className="grid md:grid-cols-3 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-gray-500" />
+                <div>
+                  <span className="text-gray-600">양육자:</span>
+                  <span className="ml-1 font-medium">{userInfo.caregiverName}</span>
                 </div>
               </div>
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push('/user-info')}
-                >
-                  정보 수정
-                </Button>
+              <div className="flex items-center gap-2">
+                <Baby className="w-4 h-4 text-gray-500" />
+                <div>
+                  <span className="text-gray-600">아이:</span>
+                  <span className="ml-1 font-medium">{userInfo.childName}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600">나이:</span>
+                <span className="ml-1 font-medium">{userInfo.childAge}세</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {success ? (
+        {/* 업로드 완료 상태 */}
+        {uploadSuccess ? (
           <Card>
             <CardContent className="p-8 text-center">
               <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-green-700 mb-2">
-                업로드 완료!
+                🎉 대용량 업로드 완료!
               </h3>
               <p className="text-gray-600 mb-4">
-                영상이 성공적으로 업로드되었습니다. 분석 페이지로 이동합니다.
+                영상이 성공적으로 클라우드에 업로드되었습니다. 분석 페이지로 이동합니다.
               </p>
               <div className="animate-pulse text-blue-600">
                 분석 페이지로 이동 중...
@@ -193,89 +135,82 @@ export default function UploadPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardContent className="p-8">
-              {!selectedFile ? (
-                <div
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
-                  onClick={() => document.getElementById('video-input')?.click()}
-                >
-                  <FileVideo className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                  <p className="text-lg font-medium mb-2">
-                    파일을 드래그하거나 클릭하여 선택하세요
-                  </p>
-                  <p className="text-sm text-gray-500 mb-4">
-                    MP4, MOV, AVI 등의 비디오 파일 (최대 300MB)
-                  </p>
-                  <Button variant="outline">
-                    파일 선택
-                  </Button>
-                  <input
-                    id="video-input"
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {handleFileSelect(file);}
-                    }}
-                    className="hidden"
-                  />
-                </div>
-              ) : (
-                <div className="text-center">
-                  <FileVideo className="w-16 h-16 mx-auto mb-4 text-blue-500" />
-                  <h3 className="text-lg font-semibold mb-2">선택된 파일</h3>
-                  <p className="text-gray-600 mb-1">{selectedFile.name}</p>
-                  <p className="text-sm text-gray-500 mb-6">
-                    크기: {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                  </p>
+          <div className="space-y-6">
+            {/* 대용량 업로드 컴포넌트 */}
+            <LargeFileUploader
+              userInfo={userInfo}
+              maxSizeMB={500}
+              onUploadComplete={handleUploadComplete}
+            />
 
-                  {isUploading ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 justify-center">
-                        <Upload className="w-5 h-5 animate-pulse" />
-                        <span>업로드 중...</span>
-                      </div>
-                      <Progress value={uploadProgress} className="w-full" />
-                      <p className="text-sm text-gray-600">
-                        {uploadProgress}% 완료
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex gap-4 justify-center">
-                      <Button
-                        variant="outline"
-                        onClick={() => setSelectedFile(null)}
-                      >
-                        다시 선택
-                      </Button>
-                      <Button onClick={handleUpload}>
-                        업로드 시작
-                      </Button>
-                    </div>
-                  )}
+            {/* 업로드 방식 안내 */}
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold text-blue-800 mb-3">
+                  ⚡ 대용량 파일 업로드 특징
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4 text-sm text-blue-700">
+                  <div>
+                    <h4 className="font-medium mb-2">✨ 고속 업로드</h4>
+                    <ul className="space-y-1 text-blue-600">
+                      <li>• Google Cloud Storage 직접 업로드</li>
+                      <li>• 서버를 거치지 않는 빠른 전송</li>
+                      <li>• 실시간 진행률 추적</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">🔒 안전한 보관</h4>
+                    <ul className="space-y-1 text-blue-600">
+                      <li>• 암호화된 전송 및 저장</li>
+                      <li>• 중단된 업로드 재개 가능</li>
+                      <li>• 업로드 완료 후 자동 검증</li>
+                    </ul>
+                  </div>
                 </div>
-              )}
+              </CardContent>
+            </Card>
 
-              {error && (
-                <Alert className="mt-6">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    {error}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
+            {/* 지원 파일 형식 안내 */}
+            <Card className="bg-gray-50 border-gray-200">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                  📋 업로드 요구사항
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-700">
+                  <div>
+                    <h4 className="font-medium mb-2">📁 지원 형식</h4>
+                    <ul className="space-y-1">
+                      <li>• MP4 (추천)</li>
+                      <li>• MOV (QuickTime)</li>
+                      <li>• AVI</li>
+                      <li>• MKV</li>
+                      <li>• WEBM</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">⚖️ 파일 크기</h4>
+                    <ul className="space-y-1">
+                      <li>• 최대 500MB까지 지원</li>
+                      <li>• 권장 크기: 300-500MB</li>
+                      <li>• 최소 1분 이상의 놀이 영상</li>
+                      <li>• HD 품질 권장 (1080p)</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-500">
-            업로드된 영상은 분석 후 안전하게 처리됩니다
-          </p>
-        </div>
+        {/* 오류 상태 */}
+        {error && (
+          <Alert className="mt-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {error}
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
     </div>
   );
