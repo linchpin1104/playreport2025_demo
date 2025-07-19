@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle, Loader2, Brain, Users, MessageCircle, AlertCircle, Settings, FileText, Zap } from 'lucide-react';
+import { CheckCircle, Loader2, Brain, Users, AlertCircle, Settings, FileText, Zap } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -49,12 +49,12 @@ const STEP_INFO = {
   voice_extraction: {
     title: '음성 추출',
     description: '영상에서 음성 데이터를 추출합니다',
-    icon: MessageCircle
+    icon: AlertCircle
   },
   voice_analysis: {
     title: '음성 분석',
     description: 'Speech-to-Text로 음성을 분석합니다',
-    icon: MessageCircle
+    icon: AlertCircle
   },
   integration: {
     title: '통합 분석',
