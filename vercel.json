@@ -1,9 +1,5 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "npm install",
-  "devCommand": "npm run dev",
   "regions": ["icn1"],
   "functions": {
     "app/api/**/*.ts": {
@@ -11,32 +7,9 @@
       "memory": 1024
     }
   },
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods", 
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
-        }
-      ]
+  "build": {
+    "env": {
+      "NEXT_TELEMETRY_DISABLED": "1"
     }
-  ],
-  "rewrites": [
-    {
-      "source": "/healthcheck",
-      "destination": "/api/healthcheck"
-    }
-  ]
+  }
 } 

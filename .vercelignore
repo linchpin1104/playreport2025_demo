@@ -1,0 +1,24 @@
+# Local files and directories to ignore during Vercel deployment
+.env.local
+.env.*.local
+node_modules
+.next
+.DS_Store
+*.log
+.git
+.gitignore
+
+# Development files
+*.test.js
+*.test.ts
+*.test.tsx
+__tests__
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+Thumbs.db 
