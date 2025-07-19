@@ -1,0 +1,221 @@
+import { Storage } from '@google-cloud/storage';
+import { NextRequest, NextResponse } from 'next/server';
+import { v4 as uuidv4 } from 'uuid';
+import config from '@/lib/config';
+import { GCPDataStorage } from '@/lib/gcp-data-storage';
+import { isDevelopmentMode, getMockUploadData, logDevelopmentMode } from '@/lib/mock-data-loader';
+
+// Initialize Google Cloud Storage
+const storage = new Storage({
+  projectId: config.googleCloud.projectId,
+  keyFilename: config.googleCloud.keyFile,
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    // 개발 모드 체크
+    if (isDevelopmentMode()) {
+      logDevelopmentMode('Upload API');
+      
+      // Mock 데이터 반환 (실제 업로드 없이 바로 성공 응답)
+      const mockData = getMockUploadData();
+      
+      // 업로드 시간을 시뮬레이션 (짧게)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mock 세션 데이터 생성 (GCP 연결 없이)
+      const mockSessionId = `mock-session-${Date.now()}`;
+      
+      return NextResponse.json({
+        ...mockData,
+        session: {
+          sessionId: mockSessionId,
+          status: 'completed',
+          createdAt: new Date().toISOString()
+        }
+      });
+    }
+
+    const formData = await request.formData();
+    const file = formData.get('video') as File;
+    
+    if (!file) {
+      return NextResponse.json(
+        { success: false, error: '파일이 선택되지 않았습니다.' },
+        { status: 400 }
+      );
+    }
+
+    // Validate file type
+    const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm'];
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json(
+        { success: false, error: '지원하지 않는 파일 형식입니다.' },
+        { status: 400 }
+      );
+    }
+
+    // Validate file size (100MB limit)
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { success: false, error: '파일 크기가 100MB를 초과합니다.' },
+        { status: 400 }
+      );
+    }
+
+    // Generate unique filename
+    const fileExtension = file.name.split('.').pop();
+    const uniqueFileName = `${uuidv4()}.${fileExtension}`;
+    const filePath = `videos/${uniqueFileName}`;
+
+    // 1. GCP 기반 세션 생성 (업로드 전)
+    const gcpStorage = new GCPDataStorage();
+    let session;
+    
+    try {
+      session = await gcpStorage.createSession(
+        uniqueFileName,
+        file.name,
+        file.size
+      );
+      console.log(`✅ GCP Session created: ${session.sessionId} for file: ${file.name}`);
+    } catch (error: any) {
+      console.error('❌ Error creating session in Firestore:', error);
+      
+             // Firestore API가 비활성화된 경우 임시 세션 생성
+       if (error.code === 7 && error.reason === 'SERVICE_DISABLED') {
+         console.log('🔄 Firestore API 비활성화됨. 임시 세션으로 진행...');
+         session = {
+           sessionId: uuidv4(),
+           metadata: {
+             fileName: uniqueFileName,
+             originalName: file.name,
+             fileSize: file.size,
+             uploadedAt: new Date().toISOString(),
+             analyzedAt: '',
+             lastUpdated: new Date().toISOString(),
+             status: 'uploaded'
+           },
+           paths: {
+             corePath: '',
+             evaluationPath: '',
+             reportPath: '',
+             rawDataPath: '',
+             voiceAnalysisPath: ''
+           },
+           analysis: {
+             participantCount: 0,
+             videoMetadata: { duration: 0, fps: 0, resolution: '' },
+             analysisResults: {}
+           }
+         };
+         console.log(`✅ 임시 세션 생성: ${session.sessionId}`);
+       } else {
+        throw error; // 다른 에러는 그대로 throw
+      }
+    }
+
+    // Get or create bucket
+    const bucketName = config.googleCloud.bucketName;
+    const bucket = storage.bucket(bucketName);
+    
+    // Check if bucket exists, if not create it
+    try {
+      const [exists] = await bucket.exists();
+      if (!exists) {
+        console.log(`Creating bucket: ${bucketName}`);
+        await storage.createBucket(bucketName, {
+          location: config.googleCloud.location,
+        });
+        console.log(`Bucket ${bucketName} created`);
+      }
+    } catch (error) {
+      console.log('Bucket creation/check error:', error);
+      // Continue anyway, might exist but have different permissions
+    }
+
+    // Upload file to Google Cloud Storage
+    const file_buffer = Buffer.from(await file.arrayBuffer());
+    const gcsFile = bucket.file(filePath);
+    
+    // 업로드 설정 개선 (큰 파일 지원, 재시도 추가)
+    const uploadOptions = {
+      metadata: {
+        contentType: file.type,
+      },
+      resumable: file.size > 5 * 1024 * 1024, // 5MB 이상은 resumable upload 사용
+      timeout: 300000, // 5분 타임아웃
+    };
+    
+    console.log(`📁 Uploading file: ${file.name} (${file.size} bytes) to ${filePath}`);
+    
+    try {
+      await gcsFile.save(file_buffer, uploadOptions);
+      console.log(`✅ File uploaded successfully: ${filePath}`);
+    } catch (uploadError: any) {
+      console.error(`❌ Upload failed:`, uploadError);
+      
+      // 재시도 한 번 더 시도 (더 간단한 설정으로)
+      try {
+        console.log('🔄 Retrying upload with simpler settings...');
+        await gcsFile.save(file_buffer, {
+          metadata: { contentType: file.type },
+          resumable: false,
+          timeout: 60000, // 1분 타임아웃
+        });
+        console.log(`✅ File uploaded successfully on retry: ${filePath}`);
+      } catch (retryError) {
+        console.error(`❌ Retry also failed:`, retryError);
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+    }
+
+    console.log(`File uploaded successfully: ${filePath}`);
+
+    // Generate Google Cloud Storage URI (gs://)
+    const gsUri = `gs://${bucketName}/${filePath}`;
+    
+    // Generate signed URL for browser access (optional)
+    const [signedUrl] = await gcsFile.getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+    });
+
+    // 2. 세션 업데이트 (업로드 완료 후)
+    session.paths.rawDataPath = gsUri;
+    session.metadata.status = 'uploaded';
+    session.metadata.lastUpdated = new Date().toISOString();
+    await gcpStorage.saveSession(session);
+
+    // Return success response with session information
+    return NextResponse.json({
+      success: true,
+      fileName: uniqueFileName,
+      originalFileName: file.name,
+      fileSize: file.size,
+      gsUri,
+      uploadUrl: signedUrl,
+      session: {
+        sessionId: session.sessionId,
+        status: session.metadata.status,
+        createdAt: session.metadata.uploadedAt,
+        updatedAt: session.metadata.lastUpdated
+      }
+    });
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    return NextResponse.json(
+      { success: false, error: '파일 업로드 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Method not allowed' },
+    { status: 405 }
+  );
+} 

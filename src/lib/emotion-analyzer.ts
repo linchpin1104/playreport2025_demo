@@ -184,9 +184,9 @@ export interface RegulationStrategy {
 }
 
 export class EnhancedEmotionAnalyzer {
-  private confidenceThreshold = 0.6;
-  private timeWindow = 5; // seconds
-  private emotionMappings = {
+  private readonly confidenceThreshold = 0.6;
+  private readonly timeWindow = 5; // seconds
+  private readonly emotionMappings = {
     // Google Cloud Vision 감정 매핑
     'joy': 'joy',
     'sorrow': 'sadness',
@@ -287,7 +287,7 @@ export class EnhancedEmotionAnalyzer {
    * 얼굴 크기 계산
    */
   private calculateFaceSize(detection: any): number {
-    if (detection.boundingBox && detection.boundingBox.vertices) {
+    if (detection.boundingBox?.vertices) {
       const vertices = detection.boundingBox.vertices;
       const width = Math.abs(vertices[1].x - vertices[0].x);
       const height = Math.abs(vertices[2].y - vertices[1].y);
@@ -300,7 +300,7 @@ export class EnhancedEmotionAnalyzer {
    * 얼굴 위치 계산
    */
   private calculateFacePosition(detection: any): { x: number; y: number; width: number; height: number } {
-    if (detection.boundingBox && detection.boundingBox.vertices) {
+    if (detection.boundingBox?.vertices) {
       const vertices = detection.boundingBox.vertices;
       return {
         x: vertices[0].x || 0,
@@ -338,24 +338,24 @@ export class EnhancedEmotionAnalyzer {
     
     let totalIntensity = 0;
     let intensityCount = 0;
-    let expressivenessMeasures: number[] = [];
-    let consistencyMeasures: number[] = [];
+    const expressivenessMeasures: number[] = [];
+    const consistencyMeasures: number[] = [];
     
     faceData.forEach(face => {
       if (face.attributes) {
         // 기본 감정 분석
         const emotions = this.extractEmotionsFromFace(face);
         Object.keys(emotions).forEach(emotion => {
-          if (primaryEmotions[emotion] !== undefined) {
-            primaryEmotions[emotion] += emotions[emotion];
+          if ((primaryEmotions as Record<string, number>)[emotion] !== undefined) {
+            (primaryEmotions as Record<string, number>)[emotion] += emotions[emotion];
           }
         });
         
         // 2차 감정 추론
         const secondaryEmotionScores = this.inferSecondaryEmotions(emotions);
         Object.keys(secondaryEmotionScores).forEach(emotion => {
-          if (secondaryEmotions[emotion] !== undefined) {
-            secondaryEmotions[emotion] += secondaryEmotionScores[emotion];
+          if ((secondaryEmotions as Record<string, number>)[emotion] !== undefined) {
+            (secondaryEmotions as Record<string, number>)[emotion] += secondaryEmotionScores[emotion];
           }
         });
         
@@ -377,11 +377,11 @@ export class EnhancedEmotionAnalyzer {
     // 평균 계산
     const faceCount = faceData.length || 1;
     Object.keys(primaryEmotions).forEach(emotion => {
-      primaryEmotions[emotion] /= faceCount;
+      (primaryEmotions as Record<string, number>)[emotion] /= faceCount;
     });
     
     Object.keys(secondaryEmotions).forEach(emotion => {
-      secondaryEmotions[emotion] /= faceCount;
+      (secondaryEmotions as Record<string, number>)[emotion] /= faceCount;
     });
     
     // 안정성 계산
@@ -446,7 +446,7 @@ export class EnhancedEmotionAnalyzer {
       'VERY_UNLIKELY': 0.2
     };
     
-    return likelihoodMap[likelihood] || 0;
+    return (likelihoodMap as Record<string, number>)[likelihood] || 0;
   }
 
   /**
@@ -479,7 +479,7 @@ export class EnhancedEmotionAnalyzer {
    * 감정 강도 계산
    */
   private calculateEmotionalIntensity(emotions: any): number {
-    const values = Object.values(emotions) as number[];
+    const values = Object.values(emotions);
     const maxEmotion = Math.max(...values);
     const avgEmotion = values.reduce((a, b) => a + b, 0) / values.length;
     
@@ -519,12 +519,12 @@ export class EnhancedEmotionAnalyzer {
    * 일관성 계산
    */
   private calculateConsistency(emotions: any): number {
-    const values = Object.values(emotions) as number[];
+    const values = Object.values(emotions);
     const maxEmotion = Math.max(...values);
     const variance = this.calculateVariance(values);
     
     // 낮은 분산과 높은 최대값 = 높은 일관성
-    return maxEmotion * (1 - variance);
+    return Math.max(0, 1 - variance / maxEmotion);
   }
 
   /**
@@ -540,7 +540,7 @@ export class EnhancedEmotionAnalyzer {
    * 감정 안정성 계산
    */
   private calculateEmotionalStability(emotions: any, faceData: any[]): number {
-    if (faceData.length < 2) return 1;
+    if (faceData.length < 2) {return 1;}
     
     let stabilityScore = 0;
     let comparisons = 0;
@@ -714,7 +714,7 @@ export class EnhancedEmotionAnalyzer {
     };
     
     const key = `${fromEmotion}_to_${toEmotion}`;
-    return triggers[key] || 'unknown';
+    return (triggers as Record<string, string>)[key] || 'unknown';
   }
 
   /**
@@ -806,7 +806,7 @@ export class EnhancedEmotionAnalyzer {
     const peaks: PeakEmotionalMoment[] = [];
     
     ['parent', 'child'].forEach(person => {
-      let emotionHistory: { emotion: string; intensity: number; timestamp: number }[] = [];
+      const emotionHistory: { emotion: string; intensity: number; timestamp: number }[] = [];
       
       timePoints.forEach(point => {
         const emotion = person === 'parent' ? point.parentEmotion : point.childEmotion;
@@ -872,7 +872,7 @@ export class EnhancedEmotionAnalyzer {
       'neutral': 'calm_interaction'
     };
     
-    return contexts[emotion] || 'general_interaction';
+    return (contexts as Record<string, string>)[emotion] || 'general_interaction';
   }
 
   /**
@@ -890,7 +890,7 @@ export class EnhancedEmotionAnalyzer {
       'neutral': 0.3
     };
     
-    const weight = emotionWeights[emotion] || 0.5;
+    const weight = (emotionWeights as Record<string, number>)[emotion] || 0.5;
     return intensity * weight;
   }
 
@@ -956,16 +956,16 @@ export class EnhancedEmotionAnalyzer {
       // 부모 → 자녀 전염
       if (prev.parentEmotion === curr.childEmotion && prev.parentEmotion !== prev.childEmotion) {
         parentToChildContagion++;
-        if (emotionalSpread[prev.parentEmotion]) {
-          emotionalSpread[prev.parentEmotion]++;
+        if ((emotionalSpread as Record<string, number>)[prev.parentEmotion]) {
+          (emotionalSpread as Record<string, number>)[prev.parentEmotion]++;
         }
       }
       
       // 자녀 → 부모 전염
       if (prev.childEmotion === curr.parentEmotion && prev.childEmotion !== prev.parentEmotion) {
         childToParentContagion++;
-        if (emotionalSpread[prev.childEmotion]) {
-          emotionalSpread[prev.childEmotion]++;
+        if ((emotionalSpread as Record<string, number>)[prev.childEmotion]) {
+          (emotionalSpread as Record<string, number>)[prev.childEmotion]++;
         }
       }
       
@@ -1041,7 +1041,7 @@ export class EnhancedEmotionAnalyzer {
   private analyzeEmotionalMirroring(timePoints: EmotionalTimePoint[]): EmotionalMirroringAnalysis {
     let facialMirroring = 0;
     let emotionalMirroring = 0;
-    let behavioralMirroring = 0;
+    const behavioralMirroring = 0;
     let delayedMirroring = 0;
     let totalAccuracy = 0;
     
@@ -1113,7 +1113,7 @@ export class EnhancedEmotionAnalyzer {
       coRegulation: coRegulation / fluctuations.length,
       parentModeling: parentModeling / fluctuations.length,
       childSelfRegulation: childSelfRegulation / fluctuations.length,
-      regulationStrategies: [...new Set(regulationStrategies)],
+      regulationStrategies: Array.from(new Set(regulationStrategies)),
       effectiveness
     };
   }
@@ -1156,8 +1156,8 @@ export class EnhancedEmotionAnalyzer {
       emotionalExpression: emotionExpression,
       emotionalVocabulary: emotionVocabulary,
       emotionalRegulation: emotionRegulation,
-      socialEmotionalSkills: socialEmotionalSkills,
-      empathyDevelopment: empathyDevelopment
+      socialEmotionalSkills,
+      empathyDevelopment
     };
   }
 
@@ -1204,7 +1204,7 @@ export class EnhancedEmotionAnalyzer {
   }
 
   private calculateEmotionVocabulary(speechData?: any[]): number {
-    if (!speechData) return 50; // 기본값
+    if (!speechData) {return 50;} // 기본값
     
     const emotionWords = ['기쁜', '슬픈', '화난', '놀란', '무서운', '좋아', '싫어', '재미있는'];
     let foundWords = 0;
@@ -1249,7 +1249,7 @@ export class EnhancedEmotionAnalyzer {
 
   private calculateEmotionalGuidance(speechData?: any[]): number {
     // 부모의 감정 지도 능력 측정
-    if (!speechData) return 70;
+    if (!speechData) {return 70;}
     
     const guidanceWords = ['괜찮아', '좋아', '잘했어', '천천히', '함께', '도와줄게'];
     let foundWords = 0;
@@ -1405,7 +1405,7 @@ export class EnhancedEmotionAnalyzer {
     };
     
     const key = `${fluctuation.fromEmotion}_to_${fluctuation.toEmotion}`;
-    return strategies[key] || 'general_regulation';
+    return (strategies as Record<string, string>)[key] || 'general_regulation';
   }
 
   /**
@@ -1423,7 +1423,7 @@ export class EnhancedEmotionAnalyzer {
    * 조절 효과성 계산
    */
   private calculateRegulationEffectiveness(strategies: RegulationStrategy[]): number {
-    if (strategies.length === 0) return 0;
+    if (strategies.length === 0) {return 0;}
     
     const totalEffectiveness = strategies.reduce((sum, strategy) => sum + strategy.effectiveness, 0);
     return totalEffectiveness / strategies.length;
@@ -1459,7 +1459,7 @@ export class EnhancedEmotionAnalyzer {
       }
     }
     
-    if (recoveryTimes.length === 0) return 0;
+    if (recoveryTimes.length === 0) {return 0;}
     
     const avgRecoveryTime = recoveryTimes.reduce((a, b) => a + b, 0) / recoveryTimes.length;
     return Math.max(0, 1 - (avgRecoveryTime / 10)); // 정규화

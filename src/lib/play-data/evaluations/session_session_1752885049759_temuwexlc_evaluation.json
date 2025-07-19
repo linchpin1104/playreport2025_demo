@@ -1,0 +1,46 @@
+{
+  "sessionId": "session_1752885049759_temuwexlc",
+  "savedAt": "2025-07-19T00:31:10.448Z",
+  "evaluation": {
+    "sessionId": "unknown",
+    "scores": {
+      "overall": 74,
+      "interactionQuality": 74,
+      "developmentSupport": 69,
+      "playEnvironment": 79,
+      "communicationScore": 74,
+      "emotionalConnection": 76,
+      "attentionSpan": 90,
+      "creativity": 45
+    },
+    "insights": {
+      "strengths": [],
+      "improvements": [],
+      "developmentGoals": [
+        "균형있는 언어 및 사회성 발달 지원",
+        "창의적 사고와 문제해결 능력 향상",
+        "집중력과 지속성 강화"
+      ],
+      "recommendations": [
+        "긍정적인 피드백과 격려를 더 자주 표현해보세요",
+        "자녀의 주도권을 더 존중하고 지지해주세요",
+        "매일 30분 이상의 질적 놀이 시간을 확보하세요",
+        "자녀의 감정을 언어로 표현하도록 도와주세요"
+      ]
+    },
+    "grade": "C",
+    "evaluatedAt": "2025-07-19T00:31:10.448Z",
+    "metadata": {
+      "evaluationVersion": "2.0.0",
+      "criteria": [
+        "physical_interaction",
+        "emotional_connection",
+        "language_development",
+        "play_patterns",
+        "attention_span",
+        "creativity_indicators"
+      ],
+      "processingTime": 2
+    }
+  }
+}

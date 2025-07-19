@@ -63,8 +63,8 @@ export interface SocialSkillsReport {
 }
 
 export class SocialSkillsAnalyzer {
-  private analysisPeriod = 30; // seconds
-  private confidenceThreshold = 0.7;
+  private readonly analysisPeriod = 30; // seconds
+  private readonly confidenceThreshold = 0.7;
 
   /**
    * 종합적인 사회적 기술 분석 수행
@@ -266,7 +266,7 @@ export class SocialSkillsAnalyzer {
         jointAttentionEpisodes.filter(e => e.initiator === 'child').length / initiationAttempts : 0,
       followingSuccess: followingAttempts > 0 ? 
         jointAttentionEpisodes.filter(e => e.initiator === 'parent').length / followingAttempts : 0,
-      objectFocus: [...new Set(objectFocusEvents)]
+      objectFocus: Array.from(new Set(objectFocusEvents))
     };
   }
 
@@ -496,7 +496,7 @@ export class SocialSkillsAnalyzer {
   }
 
   private calculateAverageDuration(episodes: any[]): number {
-    if (episodes.length === 0) return 0;
+    if (episodes.length === 0) {return 0;}
     return episodes.reduce((sum, ep) => sum + ep.duration, 0) / episodes.length;
   }
 

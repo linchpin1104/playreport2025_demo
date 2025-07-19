@@ -1,0 +1,424 @@
+{
+  "sessionId": "session_example_123",
+  "analysisMetadata": {
+    "analyzedAt": "2025-01-27T10:32:00Z",
+    "processingTime": 28.5,
+    "audioExtractedUri": "gs://play-analysis-bucket/audio/session_example_123_audio.wav",
+    "audioMetadata": {
+      "duration": 300,
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitDepth": 16,
+      "format": "wav"
+    }
+  },
+  "advancedSpeakerAnalysis": {
+    "speakerProfiles": [
+      {
+        "speakerId": "speaker_1",
+        "confidence": 0.92,
+        "demographics": {
+          "estimatedAge": 35,
+          "ageRange": "30-40",
+          "gender": "FEMALE",
+          "voiceMaturity": "ADULT"
+        },
+        "voiceCharacteristics": {
+          "pitch": {
+            "min": 180,
+            "max": 350,
+            "average": 220,
+            "variance": 45
+          },
+          "speechRate": 145,
+          "volume": {
+            "min": 0.4,
+            "max": 0.9,
+            "average": 0.72,
+            "variance": 0.15
+          },
+          "intonation": "VARIED",
+          "clarity": 0.94,
+          "emotionalRange": "HIGH"
+        },
+        "emotionalProfile": {
+          "dominantEmotions": ["joy", "supportiveness", "engagement"],
+          "emotionalStability": 0.88,
+          "expressiveness": 0.91,
+          "engagement": 0.87
+        },
+        "communicationStyle": {
+          "assertiveness": 0.65,
+          "responsiveness": 0.92,
+          "supportiveness": 0.89,
+          "playfulness": 0.82
+        }
+      },
+      {
+        "speakerId": "speaker_2",
+        "confidence": 0.87,
+        "demographics": {
+          "estimatedAge": 5,
+          "ageRange": "4-6",
+          "gender": "UNKNOWN",
+          "voiceMaturity": "CHILD"
+        },
+        "voiceCharacteristics": {
+          "pitch": {
+            "min": 250,
+            "max": 400,
+            "average": 310,
+            "variance": 35
+          },
+          "speechRate": 95,
+          "volume": {
+            "min": 0.3,
+            "max": 0.8,
+            "average": 0.65,
+            "variance": 0.18
+          },
+          "intonation": "RISING",
+          "clarity": 0.86,
+          "emotionalRange": "VERY_HIGH"
+        },
+        "emotionalProfile": {
+          "dominantEmotions": ["curiosity", "excitement", "joy"],
+          "emotionalStability": 0.75,
+          "expressiveness": 0.93,
+          "engagement": 0.90
+        },
+        "communicationStyle": {
+          "assertiveness": 0.45,
+          "responsiveness": 0.85,
+          "supportiveness": 0.72,
+          "playfulness": 0.95
+        }
+      }
+    ],
+    "speakerInteractions": [
+      {
+        "speakerPair": ["speaker_1", "speaker_2"],
+        "interactionMetrics": {
+          "turnTaking": {
+            "frequency": 24,
+            "averageWaitTime": 1.2,
+            "interruptions": 3,
+            "completionRate": 0.87
+          },
+          "emotionalSynchrony": {
+            "concordance": 0.78,
+            "attunement": 0.85,
+            "mirroring": 0.71
+          },
+          "communicationBalance": {
+            "parentSpeechRatio": 0.65,
+            "childSpeechRatio": 0.35,
+            "mutualEngagement": 0.87
+          }
+        },
+        "relationshipQuality": {
+          "cooperation": 0.89,
+          "conflict": 0.08,
+          "support": 0.91,
+          "playfulness": 0.88
+        }
+      }
+    ],
+    "parentChildAnalysis": {
+      "parentSpeaker": "speaker_1",
+      "childSpeaker": "speaker_2",
+      "parentingStyle": "SUPPORTIVE",
+      "childEngagement": 0.90,
+      "scaffoldingLevel": 0.89,
+      "responsiveness": 0.88
+    }
+  },
+  "voiceEmotionAnalysis": {
+    "speakerEmotions": [
+      {
+        "speakerId": "speaker_1",
+        "overallEmotion": {
+          "primary": "supportiveness",
+          "secondary": "joy",
+          "intensity": 0.85,
+          "confidence": 0.89,
+          "arousal": 0.72,
+          "valence": 0.78,
+          "dominance": 0.68
+        },
+        "emotionTimeline": [
+          {
+            "timestamp": 0,
+            "emotion": {
+              "primary": "calm",
+              "intensity": 0.7,
+              "confidence": 0.88
+            }
+          },
+          {
+            "timestamp": 15,
+            "emotion": {
+              "primary": "joy",
+              "intensity": 0.9,
+              "confidence": 0.92
+            }
+          },
+          {
+            "timestamp": 30,
+            "emotion": {
+              "primary": "encouragement",
+              "intensity": 0.85,
+              "confidence": 0.91
+            }
+          }
+        ],
+        "emotionStatistics": {
+          "dominantEmotions": [
+            {"emotion": "supportiveness", "percentage": 35},
+            {"emotion": "joy", "percentage": 28},
+            {"emotion": "encouragement", "percentage": 22}
+          ],
+          "emotionVariability": 0.25,
+          "emotionStability": 0.88,
+          "stressLevel": 0.12,
+          "engagementLevel": 0.87
+        }
+      },
+      {
+        "speakerId": "speaker_2",
+        "overallEmotion": {
+          "primary": "excitement",
+          "secondary": "curiosity",
+          "intensity": 0.92,
+          "confidence": 0.85,
+          "arousal": 0.88,
+          "valence": 0.85,
+          "dominance": 0.45
+        },
+        "emotionTimeline": [
+          {
+            "timestamp": 5,
+            "emotion": {
+              "primary": "curiosity",
+              "intensity": 0.85,
+              "confidence": 0.83
+            }
+          },
+          {
+            "timestamp": 20,
+            "emotion": {
+              "primary": "excitement",
+              "intensity": 0.95,
+              "confidence": 0.89
+            }
+          },
+          {
+            "timestamp": 35,
+            "emotion": {
+              "primary": "joy",
+              "intensity": 0.88,
+              "confidence": 0.87
+            }
+          }
+        ],
+        "emotionStatistics": {
+          "dominantEmotions": [
+            {"emotion": "excitement", "percentage": 32},
+            {"emotion": "curiosity", "percentage": 28},
+            {"emotion": "joy", "percentage": 25}
+          ],
+          "emotionVariability": 0.18,
+          "emotionStability": 0.82,
+          "stressLevel": 0.08,
+          "engagementLevel": 0.92
+        }
+      }
+    ],
+    "overallMood": {
+      "atmosphere": "POSITIVE",
+      "energy": "HIGH",
+      "harmony": "HARMONIOUS",
+      "playfulness": "PLAYFUL"
+    }
+  },
+  "voiceQualityAnalysis": {
+    "speakerQualities": [
+      {
+        "speakerId": "speaker_1",
+        "overallQuality": 0.89,
+        "metrics": {
+          "pitch": {
+            "stability": 0.91,
+            "range": {
+              "min": 180,
+              "max": 350,
+              "average": 220
+            }
+          },
+          "tempo": {
+            "wordsPerMinute": 145,
+            "rhythm": {
+              "consistency": 0.85,
+              "naturalness": 0.88
+            }
+          },
+          "clarity": {
+            "articulation": 0.94,
+            "intelligibility": 0.92
+          }
+        },
+        "ageAppropriate": {
+          "developmentalStage": "ADULT",
+          "appropriateness": 0.95
+        }
+      },
+      {
+        "speakerId": "speaker_2",
+        "overallQuality": 0.82,
+        "metrics": {
+          "pitch": {
+            "stability": 0.75,
+            "range": {
+              "min": 250,
+              "max": 400,
+              "average": 310
+            }
+          },
+          "tempo": {
+            "wordsPerMinute": 95,
+            "rhythm": {
+              "consistency": 0.78,
+              "naturalness": 0.85
+            }
+          },
+          "clarity": {
+            "articulation": 0.86,
+            "intelligibility": 0.89
+          }
+        },
+        "ageAppropriate": {
+          "developmentalStage": "EARLY_CHILDHOOD",
+          "appropriateness": 0.92
+        }
+      }
+    ]
+  },
+  "conversationFlowAnalysis": {
+    "turns": [
+      {
+        "speakerId": "speaker_1",
+        "startTime": 0,
+        "endTime": 4.5,
+        "duration": 4.5,
+        "transcript": "와, 이것 좀 봐! 정말 예쁘다. 너는 어떻게 생각해?",
+        "turnType": "INITIATION"
+      },
+      {
+        "speakerId": "speaker_2",
+        "startTime": 5.0,
+        "endTime": 8.1,
+        "duration": 3.1,
+        "transcript": "어? 뭐야 이거? 만져도 돼? 신기해!",
+        "turnType": "RESPONSE"
+      },
+      {
+        "speakerId": "speaker_1",
+        "startTime": 8.5,
+        "endTime": 11.7,
+        "duration": 3.2,
+        "transcript": "그래, 천천히 만져봐. 조심스럽게 해봐.",
+        "turnType": "RESPONSE"
+      }
+    ],
+    "turnTakingPatterns": {
+      "totalTurns": 48,
+      "averageTurnLength": 3.2,
+      "averageGapTime": 1.1,
+      "interruptions": {
+        "total": 3,
+        "byInitiator": {
+          "speaker_1": 1,
+          "speaker_2": 2
+        }
+      },
+      "turnCompletionRate": 0.87
+    },
+    "dialogueFlow": {
+      "conversationRhythm": {
+        "consistency": 0.82,
+        "naturalness": 0.88,
+        "fluency": 0.85,
+        "pacing": "MODERATE"
+      },
+      "interactionQuality": {
+        "responsiveness": 0.89,
+        "mutuality": 0.78,
+        "balance": 0.76
+      }
+    },
+    "conversationDevelopment": {
+      "scaffolding": {
+        "parentScaffolding": 0.89,
+        "childResponsiveness": 0.85,
+        "scaffoldingEffectiveness": 0.87
+      },
+      "learningOpportunities": {
+        "newVocabulary": ["신기해", "조심스럽게", "천천히"],
+        "questionAsking": 12,
+        "answerProviding": 15
+      },
+      "cognitiveEngagement": {
+        "curiosity": 0.88,
+        "problemSolving": 0.72,
+        "creativity": 0.85
+      }
+    },
+    "qualityMetrics": {
+      "overallQuality": 0.87,
+      "developmentalAppropriate": 0.89,
+      "interactionRichness": 0.85,
+      "educationalValue": 0.83
+    }
+  },
+  "voiceSegments": [
+    {
+      "speakerId": "speaker_1",
+      "startTime": 0,
+      "endTime": 4.5,
+      "text": "와, 이것 좀 봐! 정말 예쁘다. 너는 어떻게 생각해?",
+      "confidence": 0.92,
+      "emotions": ["joy", "excitement"],
+      "audioUri": "gs://play-analysis-bucket/segments/session_example_123_segment_1.wav"
+    },
+    {
+      "speakerId": "speaker_2",
+      "startTime": 5.0,
+      "endTime": 8.1,
+      "text": "어? 뭐야 이거? 만져도 돼? 신기해!",
+      "confidence": 0.88,
+      "emotions": ["curiosity", "excitement"],
+      "audioUri": "gs://play-analysis-bucket/segments/session_example_123_segment_2.wav"
+    },
+    {
+      "speakerId": "speaker_1",
+      "startTime": 8.5,
+      "endTime": 11.7,
+      "text": "그래, 천천히 만져봐. 조심스럽게 해봐.",
+      "confidence": 0.94,
+      "emotions": ["calm", "supportive"],
+      "audioUri": "gs://play-analysis-bucket/segments/session_example_123_segment_3.wav"
+    }
+  ],
+  "analysisQuality": {
+    "overallConfidence": 0.89,
+    "speakerDiarizationAccuracy": 0.92,
+    "emotionDetectionAccuracy": 0.85,
+    "qualityMetricsReliability": 0.87
+  },
+  "recommendations": [
+    "높은 수준의 부모-자녀 상호작용을 보여줍니다.",
+    "적절한 스캐폴딩 수준으로 자녀의 학습을 지원하고 있습니다.",
+    "감정적 동조성이 우수하여 건강한 애착 관계를 보여줍니다.",
+    "대화 균형을 조금 더 맞춰보시면 더욱 좋을 것 같습니다."
+  ]
+} 

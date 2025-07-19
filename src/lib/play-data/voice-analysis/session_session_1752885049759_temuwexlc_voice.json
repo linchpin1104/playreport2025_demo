@@ -1,0 +1,51 @@
+{
+  "sessionId": "session_1752885049759_temuwexlc",
+  "voiceAnalysis": {
+    "speakers": [
+      {
+        "speakerId": 1,
+        "demographic": {
+          "age": "adult",
+          "gender": "female"
+        },
+        "emotionalProfile": {
+          "dominant": "joy",
+          "engagement": 0.85
+        },
+        "speechCharacteristics": {
+          "pitch": "medium",
+          "tempo": "normal",
+          "volume": "moderate"
+        }
+      },
+      {
+        "speakerId": 2,
+        "demographic": {
+          "age": "child",
+          "gender": "unknown"
+        },
+        "emotionalProfile": {
+          "dominant": "excitement",
+          "engagement": 0.78
+        },
+        "speechCharacteristics": {
+          "pitch": "high",
+          "tempo": "fast",
+          "volume": "high"
+        }
+      }
+    ],
+    "conversationMetrics": {
+      "turnTaking": {
+        "balance": 0.7,
+        "appropriateness": 0.85
+      },
+      "responseTime": {
+        "average": 1.2,
+        "appropriateness": 0.88
+      },
+      "interactionQuality": 0.82
+    }
+  },
+  "savedAt": "2025-07-19T00:31:10.442Z"
+}

@@ -199,7 +199,7 @@ export default function AnalysisCharts({ visualizations, developmentIndicators }
                 <div>
                   <h5 className="text-sm font-medium text-gray-700 mb-1">관찰 사항</h5>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    {indicator.observations.map((obs, idx) => (
+                    {indicator.observations.map((obs: string, idx: number) => (
                       <li key={idx} className="flex items-start">
                         <span className="inline-block w-1 h-1 bg-gray-400 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
                         <span>{obs}</span>
@@ -211,7 +211,7 @@ export default function AnalysisCharts({ visualizations, developmentIndicators }
                 <div>
                   <h5 className="text-sm font-medium text-gray-700 mb-1">추천 사항</h5>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    {indicator.recommendations.map((rec, idx) => (
+                    {indicator.recommendations.map((rec: string, idx: number) => (
                       <li key={idx} className="flex items-start">
                         <span className="inline-block w-1 h-1 bg-blue-400 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
                         <span>{rec}</span>

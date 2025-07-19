@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
-import config from '@/lib/config';
+import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { isDevelopmentMode, getMockUploadData, logDevelopmentMode } from '@/lib/mock-data-loader';
+import config from '@/lib/config';
+import { GCPDataStorage } from '@/lib/gcp-data-storage';
 
 // Initialize Google Cloud Storage
 const storage = new Storage({
@@ -12,19 +12,6 @@ const storage = new Storage({
 
 export async function POST(request: NextRequest) {
   try {
-    // 개발 모드 체크
-    if (isDevelopmentMode()) {
-      logDevelopmentMode('Upload API');
-      
-      // Mock 데이터 반환 (실제 업로드 없이 바로 성공 응답)
-      const mockData = getMockUploadData();
-      
-      // 실제 업로드 시간을 시뮬레이션 (짧게)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      return NextResponse.json(mockData);
-    }
-
     const formData = await request.formData();
     const file = formData.get('video') as File;
     
@@ -56,60 +43,67 @@ export async function POST(request: NextRequest) {
     // Generate unique filename
     const fileExtension = file.name.split('.').pop();
     const uniqueFileName = `${uuidv4()}.${fileExtension}`;
-    const filePath = `videos/${uniqueFileName}`;
-
-    // Get or create bucket
-    const bucketName = config.googleCloud.bucketName;
+    const bucketName = config.googleCloud.storageBucket;
     const bucket = storage.bucket(bucketName);
+    const file_upload = bucket.file(`videos/${uniqueFileName}`);
     
-    // Check if bucket exists, if not create it
-    try {
-      const [exists] = await bucket.exists();
-      if (!exists) {
-        console.log(`Creating bucket: ${bucketName}`);
-        await storage.createBucket(bucketName, {
-          location: config.googleCloud.location,
-        });
-        console.log(`Bucket ${bucketName} created`);
-      }
-    } catch (error) {
-      console.log('Bucket creation/check error:', error);
-      // Continue anyway, might exist but have different permissions
-    }
+    // Convert File to Buffer
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
-    // Upload file to Google Cloud Storage
-    const file_buffer = Buffer.from(await file.arrayBuffer());
-    const gcsFile = bucket.file(filePath);
-    
-    await gcsFile.save(file_buffer, {
+    console.log(`📁 Uploading file: ${file.name} (${buffer.length} bytes) to videos/${uniqueFileName}`);
+
+    // Upload to Google Cloud Storage
+    const stream = file_upload.createWriteStream({
       metadata: {
         contentType: file.type,
+        metadata: {
+          originalName: file.name,
+          uploadedAt: new Date().toISOString(),
+        }
       },
-      resumable: false,
+      resumable: false
     });
 
-    console.log(`File uploaded successfully: ${filePath}`);
-
-    // Generate Google Cloud Storage URI (gs://)
-    const gsUri = `gs://${bucketName}/${filePath}`;
-    
-    // Generate signed URL for browser access (optional)
-    const [signedUrl] = await gcsFile.getSignedUrl({
-      action: 'read',
-      expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+    await new Promise<void>((resolve, reject) => {
+      stream.on('error', reject);
+      stream.on('finish', resolve);
+      stream.end(buffer);
     });
 
-    // Return success response
+    const gsUri = `gs://${bucketName}/videos/${uniqueFileName}`;
+    console.log(`✅ File uploaded successfully: videos/${uniqueFileName}`);
+
+    // Create session in Firestore
+    const gcpStorage = new GCPDataStorage();
+    const session = await gcpStorage.createSession(
+      `videos/${uniqueFileName}`,
+      file.name,
+      file.size
+    );
+
+    // gsUri를 세션에 추가
+    session.paths.rawDataPath = gsUri;
+    if (!session.paths.integratedAnalysisPath) {
+      session.paths.integratedAnalysisPath = undefined;
+    }
+    await gcpStorage.saveSession(session);
+
+    console.log(`✅ Session created: ${session.sessionId}`);
+
     return NextResponse.json({
       success: true,
-      fileUrl: signedUrl, // For browser access
-      gsUri: gsUri, // For Video Intelligence API
       fileName: uniqueFileName,
+      gsUri,
       originalName: file.name,
       fileSize: file.size,
       contentType: file.type,
-      bucketName: bucketName,
-      filePath: filePath
+      uploadTime: new Date().toISOString(),
+      session: {
+        sessionId: session.sessionId,
+        status: session.metadata.status,
+        createdAt: session.metadata.uploadedAt
+      }
     });
 
   } catch (error) {

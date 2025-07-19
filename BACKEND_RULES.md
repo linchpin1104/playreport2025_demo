@@ -5,7 +5,7 @@
 
 ## 2. API 엔드포인트
 - 개인정보 API: `/api/member`
-- 휴대폰 인증 API : `/api/auth`
+- 인증 API : `/api/auth`
 - 검사결과  API: `/api/result`
 - 리포트 API: `/api/report`
 - 인증 API: `/api/certificate`
@@ -22,7 +22,7 @@
 - 서버 사이드 비즈니스 로직
 
 ## 5. API 연동 규칙
-- GPT API 연동 및 구현 (GPTS를 연동)
+- 생성형 LLM API 연동 및 구현 (GPT 혹은 Google 제미나이 연동)
 - 환경 변수를 통한 API 키 관리
 - API 응답 타입 정의 및 타입 안전성 보장
 - 에러 핸들링 및 로깅 구현
@@ -42,3 +42,4 @@
 - 기존 보유하고 있는 Jason 파일을 활용하여 데이터 검색결과를 보여줌
 
 - 몽고DB나 mysql을 사용하지 않음(서버리스 환경)
+- Firebase storeage 활용

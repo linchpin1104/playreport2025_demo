@@ -115,9 +115,9 @@ export interface LanguageDevelopmentIndicators {
 }
 
 export class EnhancedSpeechAnalyzer {
-  private sampleRate = 16000;
-  private confidenceThreshold = 0.7;
-  private emotionKeywords = {
+  private readonly sampleRate = 16000;
+  private readonly confidenceThreshold = 0.7;
+  private readonly emotionKeywords = {
     joy: ['좋아', '재미있어', '신나', '하하', '와우', '대단해'],
     excitement: ['와', '우와', '멋져', '빨리', '더', '또'],
     patience: ['괜찮아', '천천히', '잠깐', '기다려', '좋아'],
@@ -190,7 +190,7 @@ export class EnhancedSpeechAnalyzer {
     // 실제 구현에서는 더 정교한 화자 식별 알고리즘 사용
     // 현재는 간단한 휴리스틱 사용
     
-    if (segment.alternatives && segment.alternatives[0]) {
+    if (segment.alternatives?.[0]) {
       const transcript = segment.alternatives[0].transcript || '';
       const confidence = segment.alternatives[0].confidence || 0;
       
@@ -214,7 +214,7 @@ export class EnhancedSpeechAnalyzer {
    * 언어 복잡도 계산
    */
   private calculateLanguageComplexity(text: string): number {
-    if (!text) return 0;
+    if (!text) {return 0;}
     
     const words = text.split(/\s+/);
     const avgWordLength = words.reduce((sum, word) => sum + word.length, 0) / words.length;
@@ -257,7 +257,7 @@ export class EnhancedSpeechAnalyzer {
     let totalSegments = 0;
     
     for (const segment of data) {
-      if (segment.alternatives && segment.alternatives[0]) {
+      if (segment.alternatives?.[0]) {
         const transcript = segment.alternatives[0].transcript || '';
         const startTime = segment.alternatives[0].words?.[0]?.startTime?.seconds || 0;
         
@@ -267,7 +267,7 @@ export class EnhancedSpeechAnalyzer {
         // 감정 점수 누적
         Object.keys(emotions).forEach(emotion => {
           if (segmentEmotions[emotion]) {
-            emotions[emotion] += segmentEmotions[emotion];
+            (emotions as Record<string, number>)[emotion] += segmentEmotions[emotion];
           }
         });
         
@@ -286,7 +286,7 @@ export class EnhancedSpeechAnalyzer {
     
     // 평균 계산
     Object.keys(emotions).forEach(emotion => {
-      emotions[emotion] = totalSegments > 0 ? emotions[emotion] / totalSegments : 0;
+      (emotions as Record<string, number>)[emotion] = totalSegments > 0 ? (emotions as Record<string, number>)[emotion] / totalSegments : 0;
     });
     
     // 감정 안정성 계산
@@ -315,10 +315,10 @@ export class EnhancedSpeechAnalyzer {
     
     // 키워드 기반 감정 점수 계산
     Object.keys(this.emotionKeywords).forEach(emotion => {
-      const keywords = this.emotionKeywords[emotion];
+      const keywords = (this.emotionKeywords as Record<string, string[]>)[emotion];
       keywords.forEach(keyword => {
         if (lowerText.includes(keyword)) {
-          emotions[emotion] += 0.2; // 키워드 발견 시 점수 증가
+          (emotions as Record<string, number>)[emotion] += 0.2; // 키워드 발견 시 점수 증가
         }
       });
     });
@@ -362,7 +362,7 @@ export class EnhancedSpeechAnalyzer {
    * 감정 안정성 계산
    */
   private calculateEmotionalStability(timeline: EmotionalTimelinePoint[]): number {
-    if (timeline.length < 2) return 1;
+    if (timeline.length < 2) {return 1;}
     
     let varianceSum = 0;
     let prevIntensity = timeline[0].intensity;
@@ -443,12 +443,12 @@ export class EnhancedSpeechAnalyzer {
         turns.push({
           from: currentSpeaker,
           to: nextSpeaker,
-          waitTime: waitTime,
+          waitTime,
           length: this.calculateTurnLength(current)
         });
         
-        if (currentSpeaker === 'parent') parentTurns++;
-        if (currentSpeaker === 'child') childTurns++;
+        if (currentSpeaker === 'parent') {parentTurns++;}
+        if (currentSpeaker === 'child') {childTurns++;}
       }
     }
     
@@ -472,7 +472,7 @@ export class EnhancedSpeechAnalyzer {
    * 턴 길이 계산 (단어 수 기반)
    */
   private calculateTurnLength(segment: any): number {
-    if (segment.alternatives && segment.alternatives[0]) {
+    if (segment.alternatives?.[0]) {
       const transcript = segment.alternatives[0].transcript || '';
       return transcript.split(/\s+/).length;
     }
@@ -507,7 +507,7 @@ export class EnhancedSpeechAnalyzer {
     let totalTime = 0;
     
     data.forEach(segment => {
-      if (segment.alternatives && segment.alternatives[0] && segment.alternatives[0].words) {
+      if (segment.alternatives?.[0]?.words) {
         const words = segment.alternatives[0].words;
         if (words.length > 0) {
           const startTime = words[0].startTime?.seconds || 0;
@@ -528,7 +528,7 @@ export class EnhancedSpeechAnalyzer {
     let maxTime = 0;
     
     allSegments.forEach(segment => {
-      if (segment.alternatives && segment.alternatives[0] && segment.alternatives[0].words) {
+      if (segment.alternatives?.[0]?.words) {
         const words = segment.alternatives[0].words;
         if (words.length > 0) {
           const endTime = words[words.length - 1].endTime?.seconds || 0;
@@ -551,7 +551,7 @@ export class EnhancedSpeechAnalyzer {
         return aTime - bTime;
       });
     
-    if (allSegments.length < 2) return 0;
+    if (allSegments.length < 2) {return 0;}
     
     const intervals: number[] = [];
     for (let i = 1; i < allSegments.length; i++) {
@@ -574,7 +574,7 @@ export class EnhancedSpeechAnalyzer {
     let parentResponses = 0;
     let childResponses = 0;
     let totalQuestions = 0;
-    let responseLatencies: number[] = [];
+    const responseLatencies: number[] = [];
     
     for (let i = 0; i < segments.length - 1; i++) {
       const current = segments[i];
@@ -659,10 +659,10 @@ export class EnhancedSpeechAnalyzer {
     
     let totalWords = 0;
     let totalDuration = 0;
-    let intonationPatterns = { rising: 0, falling: 0, flat: 0 };
+    const intonationPatterns = { rising: 0, falling: 0, flat: 0 };
     
     data.forEach(segment => {
-      if (segment.alternatives && segment.alternatives[0]) {
+      if (segment.alternatives?.[0]) {
         const transcript = segment.alternatives[0].transcript || '';
         const words = transcript.split(/\s+/);
         totalWords += words.length;
@@ -721,7 +721,7 @@ export class EnhancedSpeechAnalyzer {
     let segmentCount = 0;
     
     data.forEach(segment => {
-      if (segment.alternatives && segment.alternatives[0]) {
+      if (segment.alternatives?.[0]) {
         totalConfidence += segment.alternatives[0].confidence || 0;
         segmentCount++;
       }
@@ -742,17 +742,17 @@ export class EnhancedSpeechAnalyzer {
    */
   private analyzeLanguageCharacteristics(data: any[]): any {
     let totalWords = 0;
-    let uniqueWords = new Set();
+    const uniqueWords = new Set();
     let sentences = 0;
     let complexSentences = 0;
     
     data.forEach(segment => {
-      if (segment.alternatives && segment.alternatives[0]) {
+      if (segment.alternatives?.[0]) {
         const transcript = segment.alternatives[0].transcript || '';
         const words = transcript.split(/\s+/);
         
         totalWords += words.length;
-        words.forEach(word => uniqueWords.add(word.toLowerCase()));
+        words.forEach((word: string) => uniqueWords.add(word.toLowerCase()));
         
         const sentenceCount = transcript.split(/[.!?]+/).length;
         sentences += sentenceCount;
@@ -830,7 +830,7 @@ export class EnhancedSpeechAnalyzer {
     const allData = [...speakerData.parent, ...speakerData.child];
     
     allData.forEach(segment => {
-      if (segment.alternatives && segment.alternatives[0]) {
+      if (segment.alternatives?.[0]) {
         const transcript = segment.alternatives[0].transcript.toLowerCase();
         
         // 패턴 매칭
@@ -854,9 +854,9 @@ export class EnhancedSpeechAnalyzer {
     
     return {
       clarificationRequests: clarifications,
-      confirmations: confirmations,
-      encouragements: encouragements,
-      corrections: corrections
+      confirmations,
+      encouragements,
+      corrections
     };
   }
 
@@ -872,7 +872,7 @@ export class EnhancedSpeechAnalyzer {
     const allData = [...speakerData.parent, ...speakerData.child];
     
     allData.forEach(segment => {
-      if (segment.alternatives && segment.alternatives[0]) {
+      if (segment.alternatives?.[0]) {
         const transcript = segment.alternatives[0].transcript.toLowerCase();
         
         // 웃음 감지
@@ -929,7 +929,7 @@ export class EnhancedSpeechAnalyzer {
     let narrativeElements = 0;
     
     childData.forEach(segment => {
-      if (segment.alternatives && segment.alternatives[0]) {
+      if (segment.alternatives?.[0]) {
         const transcript = segment.alternatives[0].transcript || '';
         
         // 어휘 범위 (간소화)
@@ -973,7 +973,7 @@ export class EnhancedSpeechAnalyzer {
     let encouragementCount = 0;
     
     parentData.forEach(segment => {
-      if (segment.alternatives && segment.alternatives[0]) {
+      if (segment.alternatives?.[0]) {
         const transcript = segment.alternatives[0].transcript.toLowerCase();
         
         // 언어 모델링

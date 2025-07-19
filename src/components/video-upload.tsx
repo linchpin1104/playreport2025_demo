@@ -69,7 +69,7 @@ export default function VideoUpload({
   }, [handleFileSelect]);
 
   const handleUpload = useCallback(async () => {
-    if (!file) return;
+    if (!file) {return;}
 
     setUploading(true);
     setUploadProgress(0);

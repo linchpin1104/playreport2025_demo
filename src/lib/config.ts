@@ -21,6 +21,7 @@ export const config = {
     projectId: process.env.GOOGLE_CLOUD_PROJECT_ID || '',
     keyFile: process.env.GOOGLE_CLOUD_KEY_FILE || '',
     bucketName: process.env.GOOGLE_CLOUD_BUCKET || '',
+    storageBucket: process.env.GOOGLE_CLOUD_BUCKET || '',
     location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
   },
   
@@ -73,6 +74,41 @@ export const config = {
     languageCode: process.env.SPEECH_LANGUAGE_CODE || 'ko-KR',
     enableSpeakerDiarization: true,
     diarizationSpeakerCount: 2,
+  },
+  
+  // Analysis Configuration (Python metrics_calculator.py 반영)
+  analysis: {
+    // 분석 세밀도 설정
+    frameSamplingRate: 1,  // 초당 프레임 수
+    proximityThreshold: 0.3,  // 근접 판단 기준
+    minAttentionSpan: 10,  // 최소 주의 지속 시간(초)
+    
+    // 언어 분석 설정
+    minUtteranceLength: 2,  // 최소 발화 단어 수
+    conversationGap: 3,  // 대화 구분 간격(초)
+    
+    // 보고서 설정
+    includeVideoClips: true,  // 주요 장면 클립 포함
+    anonymizeFaces: false,  // 얼굴 익명화
+    
+    // 점수 계산 가중치 (InteractionScoreCalculator 반영)
+    scoreWeights: {
+      physical_proximity: 0.15,
+      movement_synchrony: 0.10,
+      face_orientation: 0.15,
+      language_frequency: 0.15,
+      language_quality: 0.15,
+      play_diversity: 0.10,
+      attention_span: 0.10,
+      conflict_resolution: 0.10
+    }
+  },
+
+  // Redis Configuration
+  redis: {
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    password: process.env.REDIS_PASSWORD || '',
+    db: parseInt(process.env.REDIS_DB || '0'),
   },
   
   // Development Configuration

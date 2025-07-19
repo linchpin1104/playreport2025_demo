@@ -33,8 +33,8 @@ export interface SocialGestureResult extends GestureResult {
 }
 
 export class GestureRecognitionEngine {
-  private confidenceThreshold = 0.6;
-  private temporalWindow = 2; // seconds
+  private readonly confidenceThreshold = 0.6;
+  private readonly temporalWindow = 2; // seconds
 
   /**
    * 부모-자녀 상호작용 제스처 감지

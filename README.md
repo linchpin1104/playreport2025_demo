@@ -1,246 +1,309 @@
-# 놀이영상 분석 서비스 (Play Report)
+# 🎯 놀이 상호작용 분석 시스템
 
-부모와 아이의 놀이상호작용을 분석하여 전문적인 레포트를 제공하는 AI 기반 서비스입니다.
+AI 기반 부모-자녀 놀이 영상 분석을 통해 상호작용 패턴을 파악하고 발달 지원 방안을 제공하는 시스템입니다.
 
-## 🎯 주요 기능
+## 📋 주요 기능
 
-### 1. 영상 분석 기능
-- **Cloud Video Intelligence API** 활용한 1차 분석
-- 객체 추적 (Object Tracking)
-- 음성 전사 및 화자 분리 (Speech Transcription)
-- 얼굴 감지 (Face Detection)
-- 인물 감지 (Person Detection)
-- 장면 전환 감지 (Shot Change Detection)
+### 🔍 분석 모듈
+- **물리적 상호작용**: 근접성, 움직임 동기화, 활동성 분석
+- **언어적 상호작용**: 음성 전사, 대화 패턴, 발화 특성 분석
+- **감정적 상호작용**: 얼굴 지향 행동, 참여도, 감정적 동기화
+- **놀이 패턴**: 장난감 사용 패턴, 활동 전환, 협력 놀이 분석
 
-### 2. AI 분석 레포트 생성
-- **OpenAI GPT-4** 활용한 2차 분석
-- 상호작용 품질 평가
-- 의사소통 패턴 분석
-- 감정 상태 파악
-- 놀이 패턴 식별
-- 발달 지표 평가
-- 개인화된 추천사항 제공
+### 📊 결과 대시보드
+- **5개 탭 구성**: 물리적/감정적/언어적 상호작용, 놀이 패턴, 발달 지표
+- **실시간 차트**: 근접성, 발화 빈도, 참여도 등 다양한 시각화
+- **히트맵**: 활동성 시각화 및 패턴 분석
+- **종합 평가**: 상호작용 질 점수 및 발달 지원 권장사항
 
-### 3. 시각화 대시보드
-- 상호작용 지표 차트
-- 발달 영역별 점수 시각화
-- 감정 상태 타임라인
-- 놀이 패턴 분석 그래프
-
-## 🏗️ 기술 스택
-
-### Frontend
-- **Next.js 14** (App Router)
-- **React 18** (TypeScript)
-- **Tailwind CSS** (스타일링)
-- **shadcn/ui** (UI 컴포넌트)
-- **Recharts** (데이터 시각화)
-- **React Query** (상태 관리)
-
-### Backend
-- **Next.js API Routes** (서버리스 API)
-- **Google Cloud Video Intelligence API** (영상 분석)
-- **OpenAI API** (AI 분석)
-- **Firebase Storage** (파일 저장)
-- **Firebase Admin SDK** (서버사이드 작업)
-
-### DevOps & Tools
-- **TypeScript** (타입 안전성)
-- **ESLint** (코드 품질)
-- **Vercel** (배포)
-
-## 📋 사전 요구사항
-
-### 1. API 키 설정
-다음 서비스들의 API 키가 필요합니다:
-
-- **Google Cloud Platform**
-  - Video Intelligence API 활성화
-  - 서비스 계정 키 파일 생성
-  - Cloud Storage 버킷 생성
-
-- **OpenAI**
-  - GPT-4 API 액세스
-  - API 키 발급
-
-- **Firebase**
-  - Firebase 프로젝트 생성
-  - Storage 설정
-  - Admin SDK 키 설정
-
-### 2. 시스템 요구사항
-- Node.js 18.0.0 이상
-- npm 9.0.0 이상
-
-## 🚀 설치 및 실행
-
-### 1. 프로젝트 클론
-```bash
-git clone <repository-url>
-cd play_report
+### 🔄 페이지 플로우
+```
+홈 → 업로드 → 분석 → 결과 → 리포트 → 완료
 ```
 
-### 2. 의존성 설치
+## 🚀 빠른 시작
+
+### 1. 설치 및 실행
 ```bash
+# 의존성 설치
 npm install
-```
 
-### 3. 환경 변수 설정
-`.env.local` 파일을 생성하고 다음 변수들을 설정하세요:
-
-```env
-# Google Cloud Video Intelligence API
-GOOGLE_CLOUD_PROJECT_ID=your-project-id
-GOOGLE_CLOUD_KEY_FILE=path/to/service-account-key.json
-GOOGLE_CLOUD_BUCKET=your-bucket-name
-
-# OpenAI API
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-4
-
-# Firebase Configuration
-NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
-
-# Firebase Admin
-FIREBASE_ADMIN_PROJECT_ID=your-project-id
-FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n"
-FIREBASE_ADMIN_CLIENT_EMAIL=your-service-account@your-project.iam.gserviceaccount.com
-
-# App Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_MAX_FILE_SIZE=100MB
-NEXT_PUBLIC_ALLOWED_FILE_TYPES=mp4,mov,avi,mkv,webm
-```
-
-### 4. 개발 서버 실행
-```bash
+# 개발 서버 실행
 npm run dev
+
+# 브라우저에서 접속
+open http://localhost:3000
 ```
 
-브라우저에서 `http://localhost:3000`에 접속하여 애플리케이션을 확인하세요.
+### 2. 개발 모드 (기본값)
+- **특징**: Mock 데이터 사용, 빠른 테스트, 무료
+- **용도**: 개발 및 데모 목적
 
-## 📁 프로젝트 구조
+### 3. 실제 데이터 모드
+- **특징**: 실제 GCP 서비스 사용, 정확한 분석
+- **용도**: 프로덕션 환경 및 실제 분석
 
-```
-play_report/
-├── src/
-│   ├── app/                    # Next.js App Router
-│   │   ├── api/               # API 라우트
-│   │   │   ├── upload/        # 파일 업로드
-│   │   │   ├── analyze/       # 영상 분석
-│   │   │   └── report/        # AI 레포트 생성
-│   │   ├── globals.css        # 전역 스타일
-│   │   └── page.tsx           # 메인 페이지
-│   ├── components/            # React 컴포넌트
-│   │   ├── ui/               # 기본 UI 컴포넌트
-│   │   ├── charts/           # 차트 컴포넌트
-│   │   └── video-upload.tsx  # 영상 업로드 컴포넌트
-│   ├── lib/                   # 유틸리티 함수
-│   │   ├── config.ts         # 설정 관리
-│   │   └── utils.ts          # 공통 유틸리티
-│   └── types/                 # TypeScript 타입 정의
-│       └── index.ts          # 타입 정의
-├── public/                    # 정적 파일
-├── BACKEND_RULES.md          # 백엔드 개발 규칙
-├── FRONTEND_RULES.md         # 프론트엔드 개발 규칙
-└── README.md                 # 프로젝트 문서
+## 🔧 환경 설정
+
+### 기본 환경 변수 (.env.local)
+```env
+# 개발 모드 설정
+DEVELOPMENT_MODE=true
+
+# Google Cloud Platform 설정 (실제 모드용)
+GOOGLE_CLOUD_PROJECT_ID=your-project-id
+GOOGLE_CLOUD_KEY_FILE=./path/to/service-account-key.json
+GOOGLE_CLOUD_BUCKET_NAME=your-bucket-name
+
+# Next.js 환경
+NEXT_PUBLIC_API_URL=http://localhost:3000
+NODE_ENV=development
 ```
 
-## 🔄 워크플로우
+### 실제 데이터 모드 설정
 
-### 1. 영상 업로드
-- 사용자가 놀이 영상을 드래그 앤 드롭 또는 선택하여 업로드
-- 파일 검증 (형식, 크기 제한)
-- Firebase Storage에 업로드
+#### 1. GCP 서비스 활성화
+```bash
+# 필수 API 활성화
+gcloud services enable firestore.googleapis.com
+gcloud services enable videointelligence.googleapis.com
+gcloud services enable storage.googleapis.com
+gcloud services enable texttospeech.googleapis.com
+```
 
-### 2. 영상 분석
-- Cloud Video Intelligence API를 통한 1차 분석
-- 객체 추적, 음성 전사, 얼굴/인물 감지 등
-- 구조화된 데이터로 변환
+#### 2. 서비스 계정 생성
+```bash
+# 서비스 계정 생성
+gcloud iam service-accounts create play-analysis-service \
+    --display-name="Play Analysis Service"
 
-### 3. AI 레포트 생성
-- OpenAI GPT-4를 통한 2차 분석
-- 전문적인 놀이상호작용 레포트 생성
-- 발달 지표 평가 및 추천사항 제공
+# 권한 부여
+gcloud projects add-iam-policy-binding your-project-id \
+    --member="serviceAccount:play-analysis-service@your-project-id.iam.gserviceaccount.com" \
+    --role="roles/firestore.user"
 
-### 4. 결과 시각화
-- 차트 및 그래프로 분석 결과 표시
-- 발달 영역별 점수 시각화
-- 상호작용 패턴 분석
+gcloud projects add-iam-policy-binding your-project-id \
+    --member="serviceAccount:play-analysis-service@your-project-id.iam.gserviceaccount.com" \
+    --role="roles/videointelligence.editor"
 
-## 🔧 주요 API 엔드포인트
+gcloud projects add-iam-policy-binding your-project-id \
+    --member="serviceAccount:play-analysis-service@your-project-id.iam.gserviceaccount.com" \
+    --role="roles/storage.objectAdmin"
 
-### `/api/upload`
-- **POST**: 영상 파일 업로드
-- Firebase Storage에 파일 저장
-- 파일 URL 반환
+# 키 파일 생성
+gcloud iam service-accounts keys create ./service-account-key.json \
+    --iam-account=play-analysis-service@your-project-id.iam.gserviceaccount.com
+```
 
-### `/api/analyze`
-- **POST**: 영상 분석 요청
-- Cloud Video Intelligence API 호출
-- 분석 결과 반환
+#### 3. Firestore 데이터베이스 생성
+1. Firebase Console에서 프로젝트 선택
+2. Firestore Database 생성
+3. 서울(asia-northeast3) 지역 선택
 
-### `/api/report`
-- **POST**: AI 레포트 생성
-- OpenAI API를 통한 종합 분석
-- 시각화 데이터 포함
+#### 4. Cloud Storage 버킷 생성
+```bash
+# 버킷 생성
+gsutil mb -l asia-northeast3 gs://your-bucket-name
+```
 
-## 📊 분석 결과 예시
+#### 5. 환경 변수 설정
+```env
+# 실제 모드 활성화
+DEVELOPMENT_MODE=false
 
-### 상호작용 지표
-- 전체 상호작용 품질: 85/100
-- 부모 참여도: 90/100
-- 아이 참여도: 80/100
+# GCP 설정
+GOOGLE_CLOUD_PROJECT_ID=your-project-id
+GOOGLE_CLOUD_KEY_FILE=./service-account-key.json
+GOOGLE_CLOUD_BUCKET_NAME=your-bucket-name
+```
 
-### 발달 영역별 점수
-- 언어 발달: 85/100
-- 사회성 발달: 90/100
-- 인지 발달: 80/100
-- 운동 발달: 75/100
-- 정서 발달: 88/100
+## 🎮 사용 방법
 
-### 추천사항
-- 아이의 자발적 발화를 더 많이 유도하세요
-- 놀이 중 아이의 관심을 따라가는 시간을 늘려보세요
-- 긍정적인 피드백을 더 자주 제공하세요
+### 개발 모드 사용
+1. 기본 설정으로 서버 실행
+2. 브라우저에서 http://localhost:3000 접속
+3. 비디오 업로드 (Mock 데이터 사용)
+4. 분석 결과 확인
 
-## 🚨 문제 해결
+### 실제 데이터 모드 전환
+1. 상단 설정 버튼 클릭
+2. GCP 서비스 상태 확인
+3. "모드 전환" 버튼 클릭
+4. 실제 비디오 분석 수행
 
-### 일반적인 문제들
+## 📊 분석 결과
 
-1. **API 키 관련 에러**
-   - 환경 변수가 올바르게 설정되었는지 확인
-   - Google Cloud 서비스 계정 권한 확인
+### 종합 점수
+- **상호작용 질**: 부모-자녀 상호작용의 전반적 품질
+- **발달 지원**: 발달 단계에 맞는 지원 수준
+- **놀이 환경**: 놀이 환경의 최적화 정도
 
-2. **파일 업로드 실패**
-   - 파일 크기 제한 확인 (100MB)
-   - 지원되는 파일 형식 확인 (mp4, mov, avi, mkv, webm)
+### 상세 분석
+- **물리적 상호작용**: 근접성, 활동성, 움직임 동기화
+- **언어적 상호작용**: 발화 패턴, 대화 주도성, 언어 발달
+- **감정적 상호작용**: 얼굴 지향, 참여도, 감정적 동기화
+- **놀이 패턴**: 장난감 사용, 활동 전환, 협력 놀이
+- **발달 지표**: 주의집중, 신체발달, 사회성 발달
 
-3. **분석 시간 초과**
-   - 영상 길이 단축 (권장: 10분 이하)
-   - 네트워크 연결 상태 확인
+## 💰 비용 안내
 
-## 🤝 기여 방법
+### 개발 모드
+- **비용**: 완전 무료
+- **특징**: Mock 데이터 사용
 
-1. Fork 프로젝트
-2. Feature 브랜치 생성 (`git checkout -b feature/amazing-feature`)
-3. 변경사항 커밋 (`git commit -m 'Add amazing feature'`)
-4. 브랜치에 Push (`git push origin feature/amazing-feature`)
+### 실제 모드 (월 예상 비용)
+- **Firestore**: $0-10 (사용량에 따라)
+- **Video Intelligence**: $15-50 (분석 시간에 따라)
+- **Cloud Storage**: $1-5 (저장 용량에 따라)
+- **총 예상**: $16-65/월
+
+## 🔒 보안 설정
+
+### Firestore 보안 규칙
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+### 환경 변수 보안
+- 서비스 계정 키 파일을 절대 공개하지 마세요
+- `.env.local` 파일을 `.gitignore`에 추가하세요
+- 프로덕션에서는 환경 변수를 안전하게 관리하세요
+
+## 🛠️ 개발 가이드
+
+### 프로젝트 구조
+```
+src/
+├── app/                 # Next.js 앱 라우터
+│   ├── page.tsx        # 홈 페이지
+│   ├── upload/         # 업로드 페이지
+│   ├── analysis/       # 분석 페이지
+│   ├── results/        # 결과 페이지
+│   ├── report/         # 리포트 페이지
+│   └── complete/       # 완료 페이지
+├── lib/                # 유틸리티 라이브러리
+│   ├── video-analyzer.ts        # 비디오 분석 엔진
+│   ├── gcp-data-storage.ts     # GCP 데이터 저장소
+│   ├── mock-data-loader.ts     # Mock 데이터 로더
+│   └── ...
+└── components/         # React 컴포넌트
+    ├── ui/            # 기본 UI 컴포넌트
+    └── ...
+```
+
+### 새로운 분석 모듈 추가
+1. `src/lib/` 디렉토리에 새 분석 모듈 생성
+2. `VideoAnalyzer` 클래스에 분석 로직 추가
+3. 결과 타입을 `src/types/index.ts`에 정의
+4. 대시보드 컴포넌트에 시각화 추가
+
+### 커스텀 차트 추가
+1. `recharts` 라이브러리 사용
+2. `src/app/results/page.tsx`에 차트 컴포넌트 추가
+3. Mock 데이터와 실제 데이터 모두 지원
+
+## 🧪 테스트
+
+### 개발 모드 테스트
+```bash
+# 서버 실행
+npm run dev
+
+# 브라우저에서 전체 플로우 테스트
+open http://localhost:3000
+```
+
+### 실제 모드 테스트
+1. GCP 서비스 활성화
+2. 환경 변수 설정
+3. 모드 전환 후 실제 비디오 업로드
+4. 분석 결과 확인
+
+### ESLint 검사
+```bash
+# 코드 품질 검사
+npm run lint
+
+# 자동 수정
+npm run lint -- --fix
+```
+
+## 📚 참고 자료
+
+### 기술 스택
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Charts**: Recharts
+- **Backend**: Next.js API Routes
+- **Database**: Google Cloud Firestore
+- **Storage**: Google Cloud Storage
+- **AI**: Google Cloud Video Intelligence API
+
+### 외부 문서
+- [Google Cloud Video Intelligence API](https://cloud.google.com/video-intelligence/docs)
+- [Firestore 문서](https://firebase.google.com/docs/firestore)
+- [Next.js 문서](https://nextjs.org/docs)
+- [Recharts 문서](https://recharts.org/en-US/)
+
+## 🐛 문제 해결
+
+### 자주 발생하는 오류
+
+#### 1. Firestore 권한 오류
+```
+Error: 7 PERMISSION_DENIED: Cloud Firestore API has not been used
+```
+**해결책**: [GCP 설정 가이드](GCP_SETUP_GUIDE.md) 참조
+
+#### 2. 비디오 업로드 실패
+```
+Error: 413 Request Entity Too Large
+```
+**해결책**: 비디오 크기를 100MB 이하로 줄이세요
+
+#### 3. 분석 시간 초과
+```
+Error: Analysis timeout
+```
+**해결책**: 비디오 길이를 10분 이하로 줄이세요
+
+### 로그 확인
+```bash
+# 개발 모드 로그
+npm run dev
+
+# 프로덕션 모드 로그
+npm run build && npm start
+```
+
+## 🤝 기여하기
+
+1. Fork 저장소
+2. 새 브랜치 생성 (`git checkout -b feature/new-analysis`)
+3. 변경사항 커밋 (`git commit -am 'Add new analysis module'`)
+4. 브랜치 푸시 (`git push origin feature/new-analysis`)
 5. Pull Request 생성
 
-## 📝 라이선스
+## 📄 라이선스
 
-이 프로젝트는 MIT 라이선스 하에 배포됩니다.
+이 프로젝트는 MIT 라이선스를 따릅니다.
 
 ## 📞 지원
 
-문제나 질문이 있으시면 [이슈](https://github.com/your-repo/issues)를 통해 문의해주세요.
+### 문의
+- 기술적 문제: GitHub Issues 생성
+- 일반 문의: 프로젝트 담당자 연락
+
+### 업데이트
+- 새로운 기능 추가 시 README 업데이트
+- 브레이킹 체인지 시 마이그레이션 가이드 제공
 
 ---
 
-**놀이영상 분석 서비스**는 AI 기술을 활용하여 부모와 아이의 소중한 놀이 시간을 더욱 의미 있게 만들어주는 서비스입니다. 🎈 
+**🎉 즐거운 놀이 상호작용 분석 되세요!** 

@@ -1,0 +1,61 @@
+{
+  "sessionId": "session_1752885049759_temuwexlc",
+  "generatedAt": "2025-07-19T00:31:10.451Z",
+  "reportData": {
+    "reportId": "04241f0e-0394-4bfc-8487-f968fc4725aa",
+    "sessionId": "session_1752885049759_temuwexlc",
+    "generatedAt": "2025-07-19T00:31:10.451Z",
+    "executiveSummary": {
+      "grade": "B",
+      "keyStrengths": [
+        "부모-자녀 간 우수한 감정적 연결",
+        "적절한 언어적 상호작용",
+        "협력적인 놀이 참여"
+      ],
+      "improvementAreas": [
+        "더 다양한 놀이 활동 시도",
+        "아이의 주도성 더 많이 격려"
+      ]
+    },
+    "detailedAnalysis": {
+      "physicalInteraction": {
+        "proximity": 0.85,
+        "synchronization": 0.79,
+        "recommendations": [
+          "적절한 물리적 거리를 유지하고 있습니다"
+        ]
+      },
+      "verbalInteraction": {
+        "balance": 0.7,
+        "quality": 0.88,
+        "recommendations": [
+          "대화의 균형이 잘 맞춰져 있습니다"
+        ]
+      },
+      "emotionalInteraction": {
+        "synchrony": 0.82,
+        "positivity": 0.89,
+        "recommendations": [
+          "긍정적인 감정 교류가 활발합니다"
+        ]
+      }
+    },
+    "actionableInsights": [
+      {
+        "category": "언어 발달",
+        "suggestion": "아이의 발화에 더 많은 시간을 주어보세요",
+        "priority": "medium"
+      },
+      {
+        "category": "놀이 패턴",
+        "suggestion": "아이가 주도하는 놀이 시간을 늘려보세요",
+        "priority": "high"
+      }
+    ],
+    "keyInsights": [
+      "부모-자녀 상호작용의 질이 우수합니다",
+      "언어 발달을 위한 추가 지원이 도움될 수 있습니다",
+      "전반적으로 건강한 놀이 패턴을 보입니다"
+    ]
+  }
+}

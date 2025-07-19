@@ -109,11 +109,11 @@ export type InteractionType =
   | 'following';
 
 export class BasicGestureDetector {
-  private confidenceThreshold = 0.6;
-  private gestureMinDuration = 0.5; // seconds
-  private gestureMaxDuration = 10; // seconds
-  private proximityThreshold = 0.2; // normalized coordinates
-  private movementThreshold = 0.1; // normalized coordinates
+  private readonly confidenceThreshold = 0.6;
+  private readonly gestureMinDuration = 0.5; // seconds
+  private readonly gestureMaxDuration = 10; // seconds
+  private readonly proximityThreshold = 0.2; // normalized coordinates
+  private readonly movementThreshold = 0.1; // normalized coordinates
 
   /**
    * 기본 제스처 분석 수행
@@ -198,7 +198,7 @@ export class BasicGestureDetector {
    * 사람 식별 (크기와 위치 기반)
    */
   private identifyPerson(detection: any): 'parent' | 'child' {
-    if (detection.boundingBox && detection.boundingBox.vertices) {
+    if (detection.boundingBox?.vertices) {
       const boundingBox = this.calculateBoundingBox(detection.boundingBox);
       
       // 휴리스틱: 더 큰 바운딩 박스 = 부모
@@ -345,14 +345,14 @@ export class BasicGestureDetector {
   private calculateDirection(dx: number, dy: number): string {
     const angle = Math.atan2(dy, dx) * 180 / Math.PI;
     
-    if (angle >= -22.5 && angle < 22.5) return 'right';
-    if (angle >= 22.5 && angle < 67.5) return 'down-right';
-    if (angle >= 67.5 && angle < 112.5) return 'down';
-    if (angle >= 112.5 && angle < 157.5) return 'down-left';
-    if (angle >= 157.5 || angle < -157.5) return 'left';
-    if (angle >= -157.5 && angle < -112.5) return 'up-left';
-    if (angle >= -112.5 && angle < -67.5) return 'up';
-    if (angle >= -67.5 && angle < -22.5) return 'up-right';
+    if (angle >= -22.5 && angle < 22.5) {return 'right';}
+    if (angle >= 22.5 && angle < 67.5) {return 'down-right';}
+    if (angle >= 67.5 && angle < 112.5) {return 'down';}
+    if (angle >= 112.5 && angle < 157.5) {return 'down-left';}
+    if (angle >= 157.5 || angle < -157.5) {return 'left';}
+    if (angle >= -157.5 && angle < -112.5) {return 'up-left';}
+    if (angle >= -112.5 && angle < -67.5) {return 'up';}
+    if (angle >= -67.5 && angle < -22.5) {return 'up-right';}
     
     return 'stationary';
   }
@@ -895,7 +895,7 @@ export class BasicGestureDetector {
     });
     
     const primaryPerson = Object.keys(personCounts).reduce((a, b) => 
-      personCounts[a] > personCounts[b] ? a : b
+      (personCounts as Record<string, number>)[a] > (personCounts as Record<string, number>)[b] ? a : b
     ) as 'parent' | 'child' | 'both';
     
     // 주요 컨텍스트 결정
@@ -1012,7 +1012,7 @@ export class BasicGestureDetector {
    * 상호작용 그룹 분석
    */
   private analyzeInteractionGroup(group: DetectedGesture[]): InteractionGesture | null {
-    if (group.length === 0) return null;
+    if (group.length === 0) {return null;}
     
     const startTime = Math.min(...group.map(g => g.startTime));
     const endTime = Math.max(...group.map(g => g.endTime));
@@ -1023,7 +1023,7 @@ export class BasicGestureDetector {
       if (gesture.person === 'both') {
         participants.add('parent');
         participants.add('child');
-      } else if (gesture.person !== 'both') {
+      } else {
         participants.add(gesture.person);
       }
     });
@@ -1107,7 +1107,7 @@ export class BasicGestureDetector {
     
     const totalGestures = parentGestures + childGestures;
     
-    if (totalGestures === 0) return 0;
+    if (totalGestures === 0) {return 0;}
     
     // 균형적 참여 = 높은 상호성
     const balance = 1 - Math.abs(parentGestures - childGestures) / totalGestures;
@@ -1138,7 +1138,7 @@ export class BasicGestureDetector {
     const gestureFrequency = videoDuration > 0 ? totalGestures / videoDuration : 0;
     
     const mostCommonGesture = Object.keys(gesturesByType).reduce((a, b) => 
-      gesturesByType[a] > gesturesByType[b] ? a : b
+      (gesturesByType as Record<string, number>)[a] > (gesturesByType as Record<string, number>)[b] ? a : b
     ) || 'unknown';
     
     return {
