@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, AlertCircle, ArrowLeft, Download } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, Download, User, Baby } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -197,6 +197,81 @@ function ResultsPageContent() {
       </div>
 
       {/* 메인 대시보드 */}
+      <div className="max-w-7xl mx-auto px-6">
+        {/* 사용자 정보 카드 */}
+        {sessionData?.userInfo && (
+          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-800">
+                <User className="w-5 h-5" />
+                분석 대상 정보
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-700 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    양육자 정보
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">이름:</span>
+                      <span className="font-medium">{sessionData.userInfo.caregiverName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">관계:</span>
+                      <span className="font-medium">{sessionData.userInfo.caregiverType}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">연락처:</span>
+                      <span className="font-medium">{sessionData.userInfo.phoneNumber}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-700 flex items-center gap-2">
+                    <Baby className="w-4 h-4" />
+                    아동 정보
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">이름:</span>
+                      <span className="font-medium">{sessionData.userInfo.childName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">연령:</span>
+                      <span className="font-medium">{sessionData.userInfo.childAge}세</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">성별:</span>
+                      <span className="font-medium">{sessionData.userInfo.childGender}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {sessionData.userInfo.additionalNotes && (
+                <div className="mt-4 pt-4 border-t border-blue-200">
+                  <h4 className="font-semibold text-gray-700 mb-2">추가 정보</h4>
+                  <p className="text-sm text-gray-600 bg-white/50 p-3 rounded-lg">
+                    {sessionData.userInfo.additionalNotes}
+                  </p>
+                </div>
+              )}
+              
+              <div className="mt-4 pt-4 border-t border-blue-200">
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>분석 세션: {sessionData.sessionId}</span>
+                  <span>분석일: {new Date(sessionData.metadata.uploadedAt).toLocaleDateString('ko-KR')}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       <PlayInteractionDashboard 
         sessionId={sessionId} 
         sessionData={sessionData || undefined}

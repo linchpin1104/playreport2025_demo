@@ -197,6 +197,15 @@ export async function POST(request: NextRequest) {
         
         videoAnalysisResult = await videoAnalysisResponse.json();
         console.log(`✅ Video analysis API success:`, videoAnalysisResult.success ? 'Success' : 'Failed');
+        
+        // 🚨 핵심 수정: API 응답은 받았지만 분석이 실패한 경우 처리
+        if (!videoAnalysisResult.success) {
+          throw new Error(
+            videoAnalysisResult.message || 
+            videoAnalysisResult.error || 
+            '영상 분석에 실패했습니다. 영상에 사람이 감지되지 않았거나 분석 조건을 만족하지 않습니다.'
+          );
+        }
       }
     } catch (error) {
       console.error('⚠️ Video analysis failed:', error);

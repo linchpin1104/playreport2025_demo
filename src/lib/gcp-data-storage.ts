@@ -2,54 +2,13 @@ import { Firestore } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
 import config from '@/lib/config';
 import { PlayAnalysisCore } from '@/lib/play-analysis-extractor';
+import { PlayAnalysisSession } from '@/lib/play-data-storage';
+import { UserInfo } from '@/types';
 
 /**
  * Google Cloud Platform 기반 데이터 저장 시스템
  * Firestore를 메인 데이터베이스로 하고, Cloud Storage를 JSON 백업용으로 사용
  */
-
-export interface PlayAnalysisSession {
-  sessionId: string;
-  metadata: {
-    fileName: string;
-    originalName: string;
-    fileSize: number;
-    uploadedAt: string;
-    analyzedAt: string;
-    lastUpdated: string;
-    status: 'uploaded' | 'analyzed' | 'core_extracted' | 'voice_analyzed' | 'integrated_analysis_completed' | 'evaluation_completed' | 'report_generated';
-  };
-  paths: {
-    corePath?: string;
-    evaluationPath?: string;
-    reportPath?: string;
-    rawDataPath?: string;
-    voiceAnalysisPath?: string;
-    integratedAnalysisPath?: string;
-  };
-  analysis: {
-    participantCount: number;
-    videoDuration: number;
-    safetyScore: number;
-    overallScore?: number;
-    keyInsights?: string[];
-  };
-  evaluation?: PlayEvaluationResult;
-  voiceAnalysis?: {
-    speakerCount: number;
-    totalSpeechDuration: number;
-    averageInteractionQuality: number;
-    emotionalSynchrony: number;
-    conversationBalance: number;
-  };
-  integratedAnalysis?: {
-    overallScore: number;
-    interactionQuality: number;
-    completedAt: string;
-    processingSteps: number;
-  };
-  tags: string[];
-}
 
 export interface PlayEvaluationResult {
   evaluationId: string;
@@ -134,6 +93,8 @@ export class GCPDataStorage {
     this.firestore = new Firestore({
       projectId: config.googleCloud.projectId,
       keyFilename: config.googleCloud.keyFile,
+      // undefined 값 무시 설정 (중요!)
+      ignoreUndefinedProperties: true,
       // 타임아웃 설정 추가
       settings: {
         maxRetries: 3,
@@ -212,6 +173,63 @@ export class GCPDataStorage {
 
     } catch (error) {
       console.error('❌ Error creating session in Firestore:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🆕 사용자 정보와 함께 새로운 분석 세션 생성
+   */
+  async createSessionWithUserInfo(
+    fileName: string,
+    originalName: string,
+    fileSize: number,
+    userInfo: UserInfo
+  ): Promise<PlayAnalysisSession> {
+    const sessionId = this.generateSessionId();
+    const now = new Date().toISOString();
+
+    const session: PlayAnalysisSession = {
+      sessionId,
+      userInfo,
+      metadata: {
+        fileName,
+        originalName,
+        fileSize,
+        uploadedAt: now,
+        analyzedAt: now,
+        lastUpdated: now,
+        status: 'uploaded'
+      },
+      paths: {},
+      analysis: {
+        participantCount: 0,
+        videoDuration: 0,
+        safetyScore: 0
+      },
+      tags: []
+    };
+
+    try {
+      // Firestore에 세션 저장
+      await this.firestore
+        .collection(this.SESSIONS_COLLECTION)
+        .doc(sessionId)
+        .set(session);
+
+      // Cloud Storage에 JSON 백업
+      await this.saveToCloudStorage(`sessions/${sessionId}.json`, session);
+
+      // 세션 인덱스 업데이트
+      await this.updateSessionIndex(session);
+
+      console.log(`✅ Session created with user info in Firestore: ${sessionId}`);
+      console.log(`👨‍👩‍👧‍👦 User: ${userInfo.caregiverName} (${userInfo.caregiverType}) - Child: ${userInfo.childName} (${userInfo.childAge}세)`);
+      
+      return session;
+
+    } catch (error) {
+      console.error('❌ Error creating session with user info in Firestore:', error);
       throw error;
     }
   }

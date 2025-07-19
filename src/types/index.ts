@@ -1,3 +1,21 @@
+// User Information Types
+export interface UserInfo {
+  caregiverName: string;
+  phoneNumber: string;
+  caregiverType: '엄마' | '아빠' | '조부모' | '기타';
+  childAge: number;
+  childName: string;
+  childGender: '남자' | '여자';
+  additionalNotes?: string;
+  submittedAt: string;
+}
+
+export interface ParticipantInfo {
+  user: UserInfo;
+  sessionId: string;
+  createdAt: string;
+}
+
 // Video Analysis Types
 export interface VideoAnalysisRequest {
   videoUrl: string;

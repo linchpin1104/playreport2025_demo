@@ -15,7 +15,7 @@ export default function HomePage() {
   const router = useRouter();
 
   const handleStartAnalysis = () => {
-    router.push('/upload');
+    router.push('/user-info');
   };
 
   const features = [

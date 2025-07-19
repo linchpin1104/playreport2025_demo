@@ -2,6 +2,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import config from '@/lib/config';
 import { PlayAnalysisCore } from '@/lib/play-analysis-extractor';
+import { UserInfo } from '@/types';
 
 /**
  * 놀이 분석 데이터 저장 시스템
@@ -10,7 +11,10 @@ import { PlayAnalysisCore } from '@/lib/play-analysis-extractor';
 
 export interface PlayAnalysisSession {
   sessionId: string;
+  userInfo?: UserInfo;
   metadata: {
+    sessionId: string;
+    userId: string;
     fileName: string;
     originalName: string;
     fileSize: number;
@@ -181,6 +185,8 @@ export class PlayDataStorage {
     const session: PlayAnalysisSession = {
       sessionId,
       metadata: {
+        sessionId: sessionId,  // 명시적으로 작성
+        userId: 'anonymous',
         fileName,
         originalName,
         fileSize,
@@ -499,7 +505,7 @@ export class PlayDataStorage {
     // 세션 종합 분석 객체 초기화
     if (!sessionData.comprehensiveAnalysis) {
       sessionData.comprehensiveAnalysis = {
-        status: status,
+        status,
         startTime: new Date().toISOString(),
         currentStep: currentStep || 'unknown',
         progress: progress || 0,
@@ -676,30 +682,40 @@ export class PlayDataStorage {
       if (criteria.dateFrom) {
         const sessionDate = new Date(session.metadata.uploadedAt);
         const fromDate = new Date(criteria.dateFrom);
-        if (sessionDate < fromDate) return false;
+        if (sessionDate < fromDate) {
+          return false;
+        }
       }
       if (criteria.dateTo) {
         const sessionDate = new Date(session.metadata.uploadedAt);
         const toDate = new Date(criteria.dateTo);
-        if (sessionDate > toDate) return false;
+        if (sessionDate > toDate) {
+          return false;
+        }
       }
       
       // 태그 필터
       if (criteria.tags && criteria.tags.length > 0) {
         const hasMatchingTag = criteria.tags.some(tag => session.tags.includes(tag));
-        if (!hasMatchingTag) return false;
+        if (!hasMatchingTag) {
+          return false;
+        }
       }
       
       // 음성 분석 여부
       if (criteria.hasVoiceAnalysis !== undefined) {
         const hasVoice = !!session.voiceAnalysis;
-        if (hasVoice !== criteria.hasVoiceAnalysis) return false;
+        if (hasVoice !== criteria.hasVoiceAnalysis) {
+          return false;
+        }
       }
       
       // 통합 분석 여부
       if (criteria.hasIntegratedAnalysis !== undefined) {
         const hasIntegrated = !!session.integratedAnalysis;
-        if (hasIntegrated !== criteria.hasIntegratedAnalysis) return false;
+        if (hasIntegrated !== criteria.hasIntegratedAnalysis) {
+          return false;
+        }
       }
       
       return true;

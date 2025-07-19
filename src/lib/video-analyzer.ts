@@ -104,10 +104,91 @@ export class VideoAnalyzer {
    * 분석 결과를 구조화된 형태로 변환
    */
   private processResults(result: any): VideoIntelligenceResults {
+    // 🔍 원본 데이터 크기 분석
+    const rawDataSize = JSON.stringify(result).length;
+    console.log(`📊 Video Intelligence API Raw Data Size: ${(rawDataSize / 1024 / 1024).toFixed(2)}MB`);
+    
+    console.log('🔍 Video Intelligence API Raw Result:', JSON.stringify({
+      hasAnnotationResults: !!result.annotationResults,
+      annotationResultsLength: result.annotationResults?.length || 0,
+      annotationResultsKeys: result.annotationResults?.[0] ? Object.keys(result.annotationResults[0]) : []
+    }, null, 2));
+
     const annotationResults = result.annotationResults?.[0];
     
     if (!annotationResults) {
+      console.warn('⚠️ No annotation results found in API response');
       throw new Error('분석 결과가 없습니다.');
+    }
+
+    console.log('📊 Annotation Results Keys:', Object.keys(annotationResults));
+    
+    // 🔍 각 필드별 원본 데이터 크기 측정
+    const fieldSizes = {};
+    for (const [key, value] of Object.entries(annotationResults)) {
+      if (value) {
+        const size = JSON.stringify(value).length;
+        fieldSizes[key] = `${(size / 1024).toFixed(1)}KB`;
+      }
+    }
+    console.log('📊 Raw Data Field Sizes:', fieldSizes);
+
+    console.log('📊 Detection Counts:', {
+      objectAnnotations: annotationResults.objectAnnotations?.length || 0,
+      personDetectionAnnotations: annotationResults.personDetectionAnnotations?.length || 0,
+      faceDetectionAnnotations: annotationResults.faceDetectionAnnotations?.length || 0,
+      speechTranscriptions: annotationResults.speechTranscriptions?.length || 0,
+      shotAnnotations: annotationResults.shotAnnotations?.length || 0,
+      segmentLabelAnnotations: annotationResults.segmentLabelAnnotations?.length || 0,
+      frameLabelAnnotations: annotationResults.frameLabelAnnotations?.length || 0
+    });
+
+    // 🔍 감지된 객체 정보 출력 (디버깅용)
+    if (annotationResults.objectAnnotations?.length > 0) {
+      console.log('📦 Detected Objects:', 
+        annotationResults.objectAnnotations.slice(0, 5).map((obj: any) => ({
+          description: obj.entity?.description,
+          confidence: obj.confidence,
+          frameCount: obj.frames?.length || 0,
+          segmentDuration: obj.segment ? 
+            `${this.parseTimeOffset(obj.segment.startTimeOffset)}s - ${this.parseTimeOffset(obj.segment.endTimeOffset)}s` : 'N/A'
+        }))
+      );
+      
+      // 전체 객체 목록 (요약)
+      const objectSummary = annotationResults.objectAnnotations.reduce((acc: any, obj: any) => {
+        const desc = obj.entity?.description || 'unknown';
+        if (!acc[desc]) {
+          acc[desc] = 0;
+        }
+        acc[desc]++;
+        return acc;
+      }, {});
+      console.log('📦 Object Detection Summary:', objectSummary);
+    }
+
+    // 🔍 Segment Labels 분석
+    if (annotationResults.segmentLabelAnnotations?.length > 0) {
+      console.log('🎬 Segment Labels (first 10):', 
+        annotationResults.segmentLabelAnnotations.slice(0, 10).map((label: any) => ({
+          description: label.entity?.description,
+          confidence: label.categoryEntities?.[0]?.description,
+          segmentCount: label.segments?.length || 0
+        }))
+      );
+    }
+
+    // 🔍 Frame Labels 분석 (이게 용량이 클 수 있음)
+    if (annotationResults.frameLabelAnnotations?.length > 0) {
+      const frameLabelSize = JSON.stringify(annotationResults.frameLabelAnnotations).length;
+      console.log(`🖼️ Frame Labels: ${annotationResults.frameLabelAnnotations.length} labels, ${(frameLabelSize / 1024 / 1024).toFixed(2)}MB`);
+      
+      console.log('🖼️ Frame Labels Sample (first 5):', 
+        annotationResults.frameLabelAnnotations.slice(0, 5).map((label: any) => ({
+          description: label.entity?.description,
+          frameCount: label.frames?.length || 0
+        }))
+      );
     }
 
     // 객체 추적 데이터 처리
@@ -171,6 +252,12 @@ export class VideoAnalyzer {
     })) || [];
 
     // 사람 감지 데이터 처리
+    console.log('🔍 Person Detection Raw Data:', JSON.stringify({
+      hasPersonDetectionAnnotations: !!annotationResults.personDetectionAnnotations,
+      personDetectionLength: annotationResults.personDetectionAnnotations?.length || 0,
+      firstPersonSample: annotationResults.personDetectionAnnotations?.[0] || null
+    }, null, 2));
+    
     const personDetection = annotationResults.personDetectionAnnotations?.map((person: any) => ({
       tracks: person.tracks?.map((track: any) => ({
         segment: {
@@ -203,14 +290,57 @@ export class VideoAnalyzer {
       pornographyLikelihood: frame.pornographyLikelihood || 'VERY_UNLIKELY'
     })) || [];
 
+    // 텍스트 감지 데이터 처리
+    const textDetection = annotationResults.textAnnotations?.map((text: any) => ({
+      text: text.text || '',
+      segments: text.segments?.map((segment: any) => ({
+        startTimeOffset: this.parseTimeOffset(segment.startTimeOffset),
+        endTimeOffset: this.parseTimeOffset(segment.endTimeOffset),
+        confidence: segment.confidence || 0,
+        words: segment.words?.map((word: any) => ({
+          word: word.word || '',
+          startTimeOffset: this.parseTimeOffset(word.startTimeOffset),
+          endTimeOffset: this.parseTimeOffset(word.endTimeOffset),
+          confidence: word.confidence || 0
+        })) || []
+      })) || []
+    })) || [];
+
     return {
       objectTracking,
       speechTranscription,
       faceDetection,
       personDetection,
       shotChanges,
-      explicitContent
+      explicitContent,
+      textDetection
     };
+
+    // 🔍 처리된 데이터 크기 분석
+    const processedData = {
+      objectTracking,
+      speechTranscription,
+      faceDetection,
+      personDetection,
+      shotChanges,
+      textDetection
+    };
+
+    const processedDataSize = JSON.stringify(processedData).length;
+    console.log(`📊 Processed Data Size: ${(processedDataSize / 1024 / 1024).toFixed(2)}MB`);
+    console.log(`📊 Data Compression Ratio: ${((rawDataSize - processedDataSize) / rawDataSize * 100).toFixed(1)}% reduced`);
+    
+    // 🔍 처리된 데이터 구조 요약
+    console.log('📊 Processed Data Summary:', {
+      objectTracking: `${objectTracking.length} objects`,
+      speechTranscription: `${speechTranscription.length} segments`,
+      faceDetection: `${faceDetection.length} faces`,
+      personDetection: `${personDetection.length} persons`,
+      shotChanges: `${shotChanges.length} shots`,
+      textDetection: `${textDetection.length} texts`
+    });
+
+    return processedData;
   }
 
   /**

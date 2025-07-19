@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import config from '@/lib/config';
 import { GCPDataStorage } from '@/lib/gcp-data-storage';
+import { UserInfo } from '@/types';
 
 // Initialize Google Cloud Storage
 const storage = new Storage({
@@ -14,10 +15,29 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('video') as File;
+    const userInfoString = formData.get('userInfo') as string;
     
     if (!file) {
       return NextResponse.json(
         { success: false, error: '파일이 선택되지 않았습니다.' },
+        { status: 400 }
+      );
+    }
+
+    if (!userInfoString) {
+      return NextResponse.json(
+        { success: false, error: '사용자 정보가 필요합니다.' },
+        { status: 400 }
+      );
+    }
+
+    // 사용자 정보 파싱
+    let userInfo: UserInfo;
+    try {
+      userInfo = JSON.parse(userInfoString);
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, error: '사용자 정보 형식이 올바르지 않습니다.' },
         { status: 400 }
       );
     }
@@ -31,11 +51,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (100MB limit)
-    const maxSize = 100 * 1024 * 1024; // 100MB
+    // Validate file size (300MB limit)
+    const maxSize = 300 * 1024 * 1024; // 300MB
     if (file.size > maxSize) {
       return NextResponse.json(
-        { success: false, error: '파일 크기가 100MB를 초과합니다.' },
+        { success: false, error: '파일 크기가 300MB를 초과합니다.' },
         { status: 400 }
       );
     }
@@ -60,6 +80,9 @@ export async function POST(request: NextRequest) {
         metadata: {
           originalName: file.name,
           uploadedAt: new Date().toISOString(),
+          caregiverName: userInfo.caregiverName,
+          childName: userInfo.childName,
+          childAge: userInfo.childAge.toString(),
         }
       },
       resumable: false
@@ -74,22 +97,20 @@ export async function POST(request: NextRequest) {
     const gsUri = `gs://${bucketName}/videos/${uniqueFileName}`;
     console.log(`✅ File uploaded successfully: videos/${uniqueFileName}`);
 
-    // Create session in Firestore
+    // Create session in Firestore with user info
     const gcpStorage = new GCPDataStorage();
-    const session = await gcpStorage.createSession(
+    const session = await gcpStorage.createSessionWithUserInfo(
       `videos/${uniqueFileName}`,
       file.name,
-      file.size
+      file.size,
+      userInfo
     );
 
-    // gsUri를 세션에 추가
+    // gsUri를 세션에 추가하고 저장
     session.paths.rawDataPath = gsUri;
-    if (!session.paths.integratedAnalysisPath) {
-      session.paths.integratedAnalysisPath = undefined;
-    }
     await gcpStorage.saveSession(session);
 
-    console.log(`✅ Session created: ${session.sessionId}`);
+    console.log(`✅ Session created with user info: ${session.sessionId}`);
 
     return NextResponse.json({
       success: true,
@@ -99,6 +120,11 @@ export async function POST(request: NextRequest) {
       fileSize: file.size,
       contentType: file.type,
       uploadTime: new Date().toISOString(),
+      userInfo: {
+        caregiverName: userInfo.caregiverName,
+        childName: userInfo.childName,
+        childAge: userInfo.childAge
+      },
       session: {
         sessionId: session.sessionId,
         status: session.metadata.status,

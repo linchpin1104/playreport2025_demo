@@ -1,7 +1,42 @@
 {
-  "lastUpdated": "2025-07-19T00:51:00.956Z",
-  "totalSessions": 7,
+  "lastUpdated": "2025-07-19T04:09:07.375Z",
+  "totalSessions": 12,
   "sessions": [
+    {
+      "sessionId": "session_1752898134415_gv3mmaf66",
+      "fileName": "videos/2b84f895-8130-4b2f-9c41-814d4ac3d195.mp4",
+      "status": "comprehensive_analysis_started",
+      "uploadedAt": "2025-07-19T04:08:54.415Z",
+      "lastUpdated": "2025-07-19T04:09:07.374Z"
+    },
+    {
+      "sessionId": "session_1752897757203_sfcxv9tiz",
+      "fileName": "videos/07d80e05-6903-45d3-a93b-f2ec93cfa22b.mp4",
+      "status": "comprehensive_analysis_started",
+      "uploadedAt": "2025-07-19T04:02:37.203Z",
+      "lastUpdated": "2025-07-19T04:04:03.132Z"
+    },
+    {
+      "sessionId": "session_1752896914881_7w1uc6jyb",
+      "fileName": "videos/1b347b0d-48ce-4f85-8d67-97a8764f19cd.mp4",
+      "status": "comprehensive_analysis_completed",
+      "uploadedAt": "2025-07-19T03:48:34.881Z",
+      "lastUpdated": "2025-07-19T03:49:54.353Z"
+    },
+    {
+      "sessionId": "session_1752894642106_cqw8ossov",
+      "fileName": "videos/dc674fef-0f46-4121-a6e4-fcda52aa187e.mp4",
+      "status": "comprehensive_analysis_completed",
+      "uploadedAt": "2025-07-19T03:10:42.106Z",
+      "lastUpdated": "2025-07-19T03:12:08.756Z"
+    },
+    {
+      "sessionId": "session_1752890309553_63svl73wu",
+      "fileName": "videos/77586f5d-b87a-4691-82bc-169fdcb98c36.mp4",
+      "status": "comprehensive_analysis_completed",
+      "uploadedAt": "2025-07-19T01:58:29.553Z",
+      "lastUpdated": "2025-07-19T02:03:52.059Z"
+    },
     {
       "sessionId": "md9j7z6ikz4kax0l1m",
       "fileName": "session_1752886250388_j68duptfg.mp4",

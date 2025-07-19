@@ -23,7 +23,8 @@ import {
   CheckCircle,
   AlertCircle,
   Info,
-  Lightbulb
+  Lightbulb,
+  ArrowLeft
 } from 'lucide-react';
 
 // Chart.js imports
@@ -41,6 +42,7 @@ import {
   RadialLinearScale,
 } from 'chart.js';
 import { Bar, Doughnut, Line, Pie, Radar } from 'react-chartjs-2';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Register Chart.js components
 ChartJS.register(
@@ -97,118 +99,82 @@ export default function PlayInteractionDashboard({ sessionId, sessionData }: Pla
     // 세션 데이터로부터 메트릭과 차트 데이터 생성
     const generateDashboardData = () => {
       if (!sessionData) {
-        // Mock 데이터 생성
-        setMetrics({
-          interactionQuality: 8.2,
-          developmentSupport: 7.8,
-          playEnvironment: 8.1,
-          totalParticipants: 2,
-          videoDuration: '5분 48초',
-          analysisDate: '2025-07-19',
-          totalSpeech: 49,
-          dominantSpeaker: '자녀(참석자 2)',
-          sceneChanges: 8,
-          objectsDetected: 12,
-          maxAttentionSpan: 125,
-          avgAttentionSpan: 45
-        });
-
-        setChartData({
-          proximityData: [0.8, 0.5, 0.3, 0.4, 0.6, 0.7],
-          interactionData: [
-            { label: '함께 놀기', value: 45, color: '#667eea' },
-            { label: '병행 놀이', value: 25, color: '#764ba2' },
-            { label: '개별 활동', value: 20, color: '#4299e1' },
-            { label: '관찰하기', value: 10, color: '#f6ad55' }
-          ],
-          engagementData: [
-            { label: '적극 참여', value: 55, color: '#48bb78' },
-            { label: '수동 참여', value: 25, color: '#667eea' },
-            { label: '관찰', value: 15, color: '#f6ad55' },
-            { label: '비참여', value: 5, color: '#fc8181' }
-          ],
-          speechFrequencyData: [
-            { label: '참석자 1 (부모)', value: 20 },
-            { label: '참석자 2 (자녀)', value: 29 }
-          ],
-          conversationLeadData: [
-            { label: '자녀 주도', value: 59, color: '#764ba2' },
-            { label: '부모 주도', value: 41, color: '#667eea' }
-          ],
-          toyUsageData: [
-            { label: '블록', value: 35, color: '#667eea' },
-            { label: '인형', value: 25, color: '#764ba2' },
-            { label: '공', value: 20, color: '#4299e1' },
-            { label: '기타', value: 20, color: '#f6ad55' }
-          ],
-          attentionData: [3, 4, 5, 5, 4, 3, 4, 5, 5, 5, 4, 3, 2, 3, 4, 5, 4, 4, 3, 3],
-          developmentRadarData: [
-            { label: '신체발달', current: 8, average: 7 },
-            { label: '인지발달', current: 7, average: 7 },
-            { label: '언어발달', current: 7.5, average: 7 },
-            { label: '사회성', current: 8, average: 7 },
-            { label: '정서발달', current: 7, average: 7 }
-          ]
-        });
-      } else {
-        // 실제 세션 데이터로부터 메트릭 계산
-        const analysis = sessionData.analysis;
-        const metadata = sessionData.metadata;
-        
-        setMetrics({
-          interactionQuality: analysis.overallScore || 75,
-          developmentSupport: Math.round((analysis.overallScore || 75) * 0.9),
-          playEnvironment: Math.round((analysis.overallScore || 75) * 1.1),
-          totalParticipants: analysis.participantCount || 2,
-          videoDuration: `${Math.round(analysis.videoDuration || 300 / 60)}분 ${Math.round((analysis.videoDuration || 300) % 60)}초`,
-          analysisDate: new Date(metadata.analyzedAt).toLocaleDateString('ko-KR'),
-          totalSpeech: 49, // Mock
-          dominantSpeaker: '자녀(참석자 2)', // Mock
-          sceneChanges: 8, // Mock
-          objectsDetected: 12, // Mock
-          maxAttentionSpan: 125, // Mock
-          avgAttentionSpan: 45 // Mock
-        });
-
-        // 기본 차트 데이터 (실제 데이터 연결 필요)
-        setChartData({
-          proximityData: [0.8, 0.5, 0.3, 0.4, 0.6, 0.7],
-          interactionData: [
-            { label: '함께 놀기', value: 45, color: '#667eea' },
-            { label: '병행 놀이', value: 25, color: '#764ba2' },
-            { label: '개별 활동', value: 20, color: '#4299e1' },
-            { label: '관찰하기', value: 10, color: '#f6ad55' }
-          ],
-          engagementData: [
-            { label: '적극 참여', value: 55, color: '#48bb78' },
-            { label: '수동 참여', value: 25, color: '#667eea' },
-            { label: '관찰', value: 15, color: '#f6ad55' },
-            { label: '비참여', value: 5, color: '#fc8181' }
-          ],
-          speechFrequencyData: [
-            { label: '참석자 1 (부모)', value: 20 },
-            { label: '참석자 2 (자녀)', value: 29 }
-          ],
-          conversationLeadData: [
-            { label: '자녀 주도', value: 59, color: '#764ba2' },
-            { label: '부모 주도', value: 41, color: '#667eea' }
-          ],
-          toyUsageData: [
-            { label: '블록', value: 35, color: '#667eea' },
-            { label: '인형', value: 25, color: '#764ba2' },
-            { label: '공', value: 20, color: '#4299e1' },
-            { label: '기타', value: 20, color: '#f6ad55' }
-          ],
-          attentionData: [3, 4, 5, 5, 4, 3, 4, 5, 5, 5, 4, 3, 2, 3, 4, 5, 4, 4, 3, 3],
-          developmentRadarData: [
-            { label: '신체발달', current: 8, average: 7 },
-            { label: '인지발달', current: 7, average: 7 },
-            { label: '언어발달', current: 7.5, average: 7 },
-            { label: '사회성', current: 8, average: 7 },
-            { label: '정서발달', current: 7, average: 7 }
-          ]
-        });
+        // 🚨 분석 실패 상태로 처리 - Mock 데이터 생성하지 않음
+        setMetrics(null);
+        setChartData(null);
+        setIsLoading(false);
+        return;
       }
+
+      // 분석 상태 확인
+      if (sessionData.metadata.status === 'error' || 
+          sessionData.metadata.status === 'failed' ||
+          !sessionData.analysis ||
+          !sessionData.comprehensiveAnalysis) {
+        // 🚨 분석 실패 상태
+        setMetrics(null);
+        setChartData(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // 실제 세션 데이터로부터 메트릭 계산
+      const analysis = sessionData.analysis;
+      const metadata = sessionData.metadata;
+      
+      setMetrics({
+        interactionQuality: analysis.overallScore || 75,
+        developmentSupport: Math.round((analysis.overallScore || 75) * 0.9),
+        playEnvironment: Math.round((analysis.overallScore || 75) * 1.1),
+        totalParticipants: analysis.participantCount || 2,
+        videoDuration: `${Math.round(analysis.videoDuration || 300 / 60)}분 ${Math.round((analysis.videoDuration || 300) % 60)}초`,
+        analysisDate: new Date(metadata.analyzedAt).toLocaleDateString('ko-KR'),
+        totalSpeech: 49, // Mock
+        dominantSpeaker: '자녀(참석자 2)', // Mock
+        sceneChanges: 8, // Mock
+        objectsDetected: 12, // Mock
+        maxAttentionSpan: 125, // Mock
+        avgAttentionSpan: 45 // Mock
+      });
+
+      // 기본 차트 데이터 (실제 데이터 연결 필요)
+      setChartData({
+        proximityData: [0.8, 0.5, 0.3, 0.4, 0.6, 0.7],
+        interactionData: [
+          { label: '함께 놀기', value: 45, color: '#667eea' },
+          { label: '병행 놀이', value: 25, color: '#764ba2' },
+          { label: '개별 활동', value: 20, color: '#4299e1' },
+          { label: '관찰하기', value: 10, color: '#f6ad55' }
+        ],
+        engagementData: [
+          { label: '적극 참여', value: 55, color: '#48bb78' },
+          { label: '수동 참여', value: 25, color: '#667eea' },
+          { label: '관찰', value: 15, color: '#f6ad55' },
+          { label: '비참여', value: 5, color: '#fc8181' }
+        ],
+        speechFrequencyData: [
+          { label: '참석자 1 (부모)', value: 20 },
+          { label: '참석자 2 (자녀)', value: 29 }
+        ],
+        conversationLeadData: [
+          { label: '자녀 주도', value: 59, color: '#764ba2' },
+          { label: '부모 주도', value: 41, color: '#667eea' }
+        ],
+        toyUsageData: [
+          { label: '블록', value: 35, color: '#667eea' },
+          { label: '인형', value: 25, color: '#764ba2' },
+          { label: '공', value: 20, color: '#4299e1' },
+          { label: '기타', value: 20, color: '#f6ad55' }
+        ],
+        attentionData: [3, 4, 5, 5, 4, 3, 4, 5, 5, 5, 4, 3, 2, 3, 4, 5, 4, 4, 3, 3],
+        developmentRadarData: [
+          { label: '신체발달', current: 8, average: 7 },
+          { label: '인지발달', current: 7, average: 7 },
+          { label: '언어발달', current: 7.5, average: 7 },
+          { label: '사회성', current: 8, average: 7 },
+          { label: '정서발달', current: 7, average: 7 }
+        ]
+      });
       
       setIsLoading(false);
     };
@@ -344,10 +310,75 @@ export default function PlayInteractionDashboard({ sessionId, sessionData }: Pla
     }]
   };
 
-  if (isLoading || !metrics || !chartData) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4 flex items-center justify-center">
-        <div className="text-lg font-medium text-gray-600">대시보드를 불러오는 중...</div>
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="text-lg font-medium text-gray-600">대시보드를 불러오는 중...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // 🚨 분석 실패 상태 처리
+  if (!metrics || !chartData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 p-4">
+        <div className="max-w-4xl mx-auto">
+          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+            <CardHeader className="text-center pb-8">
+              <CardTitle className="text-3xl font-bold text-red-600 mb-2 flex items-center justify-center gap-3">
+                <AlertCircle className="w-8 h-8" />
+                분석 실패
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Alert className="bg-red-50 border-red-200">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-800">
+                  <div className="space-y-2">
+                    <p className="font-semibold">영상 분석에 실패했습니다.</p>
+                    <p className="text-sm">
+                      영상에서 사람을 감지할 수 없어 놀이 상호작용 분석이 불가능합니다.
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+
+              <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+                <h3 className="text-blue-800 font-semibold mb-2 flex items-center gap-2">
+                  <Info className="w-4 h-4" />
+                  해결 방법
+                </h3>
+                <ul className="text-blue-700 text-sm space-y-1 list-disc list-inside">
+                  <li>영상에 사람이 명확하게 보이는지 확인해주세요</li>
+                  <li>영상 화질이 충분한지 확인해주세요</li>
+                  <li>조명이 적절한지 확인해주세요</li>
+                  <li>카메라가 사람 전체를 촬영하고 있는지 확인해주세요</li>
+                </ul>
+              </div>
+              
+              <div className="flex justify-center gap-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.history.back()}
+                  className="flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  돌아가기
+                </Button>
+                <Button 
+                  onClick={() => window.location.href = '/upload'}
+                  className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Target className="w-4 h-4" />
+                  새로운 분석 시작
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }

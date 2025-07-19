@@ -1,0 +1,61 @@
+# ==============================================
+# VERCEL 환경변수 설정 가이드
+# ==============================================
+# 아래 변수들을 Vercel Dashboard에서 설정하세요.
+# Settings > Environment Variables
+
+# ==============================================
+# 🔑 GOOGLE CLOUD 인증 (필수)
+# ==============================================
+GOOGLE_APPLICATION_CREDENTIALS_JSON='{
+  "type": "service_account",
+  "project_id": "your-project-id",
+  "private_key_id": "your-private-key-id",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n",
+  "client_email": "your-service-account@your-project.iam.gserviceaccount.com",
+  "client_id": "your-client-id",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/your-service-account%40your-project.iam.gserviceaccount.com"
+}'
+
+# ==============================================
+# 🔧 GOOGLE CLOUD 프로젝트 설정 (필수)
+# ==============================================
+GOOGLE_CLOUD_PROJECT_ID=your-gcp-project-id
+GOOGLE_CLOUD_STORAGE_BUCKET=your-storage-bucket-name
+
+# ==============================================
+# 🔥 FIREBASE 설정 (필수)
+# ==============================================
+NEXT_PUBLIC_FIREBASE_CONFIG='{
+  "apiKey": "your-api-key",
+  "authDomain": "your-project.firebaseapp.com",
+  "projectId": "your-project-id",
+  "storageBucket": "your-project.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "your-app-id"
+}'
+
+# ==============================================
+# 🎯 API 설정 (선택사항)
+# ==============================================
+# OpenAI API (필요시)
+OPENAI_API_KEY=sk-your-openai-api-key
+
+# Next.js 환경
+NODE_ENV=production
+NEXT_PUBLIC_API_URL=https://your-vercel-app.vercel.app
+
+# ==============================================
+# 📊 애플리케이션 설정
+# ==============================================
+MAX_FILE_SIZE=100MB
+ALLOWED_FILE_TYPES=.mp4,.avi,.mov,.mkv
+
+# ==============================================
+# 🛡️ 보안 설정
+# ==============================================
+NEXTAUTH_SECRET=your-nextauth-secret-key
+NEXTAUTH_URL=https://your-vercel-app.vercel.app 

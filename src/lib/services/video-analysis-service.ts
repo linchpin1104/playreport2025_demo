@@ -248,7 +248,47 @@ export class VideoAnalysisService {
           ...options
         };
 
-        return await this.videoAnalyzer.analyzeVideo(videoPath, analysisOptions);
+        const results = await this.videoAnalyzer.analyzeVideo(videoPath, analysisOptions);
+        
+        // 🚨 핵심: 사람 감지 확인 (Person Detection 또는 Object Detection)
+        const hasPersonDetection = results.personDetection && results.personDetection.length > 0;
+        const hasPersonInObjects = results.objectTracking && 
+          results.objectTracking.some((obj: any) => 
+            obj.entity?.description?.toLowerCase() === 'person' && obj.confidence > 0.5
+          );
+
+        if (!hasPersonDetection && !hasPersonInObjects) {
+          throw new Error(
+            '영상에서 사람을 감지할 수 없어 놀이 상호작용 분석이 불가능합니다. ' +
+            '다음을 확인해주세요:\n' +
+            '• 영상에 사람이 명확하게 보이는지 확인\n' +
+            '• 영상 화질이 충분한지 확인\n' +
+            '• 조명이 적절한지 확인\n' +
+            '• 카메라가 사람 전체를 촬영하고 있는지 확인'
+          );
+        }
+
+        // Person Detection이 실패했지만 Object Detection에서 person을 찾은 경우 로그
+        if (!hasPersonDetection && hasPersonInObjects) {
+          console.log('ℹ️ Person Detection API 실패, Object Detection에서 사람 감지 대체 사용');
+          
+          // Object Detection 결과를 Person Detection 형태로 변환
+          const personObjects = results.objectTracking.filter((obj: any) => 
+            obj.entity?.description?.toLowerCase() === 'person' && obj.confidence > 0.5
+          );
+          
+          console.log(`👥 Object Detection에서 감지된 사람: ${personObjects.length}명`);
+          personObjects.forEach((person: any, index: number) => {
+            console.log(`👤 Person ${index + 1}: 신뢰도 ${(person.confidence * 100).toFixed(1)}%, 프레임 ${person.frames?.length || 0}개`);
+          });
+        }
+        
+        // 얼굴이나 음성 전사도 확인 (선택사항이지만 경고)
+        if (results.faceDetection.length === 0 && results.speechTranscription.length === 0) {
+          this.logger.warn('⚠️ 얼굴과 음성이 모두 감지되지 않았습니다. 분석 품질이 제한적일 수 있습니다.');
+        }
+
+        return results;
       },
       {
         metadata: {

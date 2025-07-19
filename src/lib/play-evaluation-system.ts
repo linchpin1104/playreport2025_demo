@@ -75,10 +75,10 @@ export class PlayEvaluationSystem {
       }
     };
     
-    console.log('✅ Play evaluation completed:', {
-      sessionId: evaluationResult.sessionId,
+    console.log(`✅ Play evaluation completed:`, {
+      sessionId: integratedAnalysis.sessionId,
       overallScore: scores.overall,
-      grade: grade,
+      grade,
       processingTime: evaluationResult.metadata.processingTime
     });
     
@@ -219,9 +219,15 @@ export class PlayEvaluationSystem {
    * 전체 점수를 기반으로 등급 계산
    */
   private calculateGrade(overallScore: number): 'A' | 'B' | 'C' | 'D' {
-    if (overallScore >= 90) return 'A';
-    if (overallScore >= 80) return 'B';
-    if (overallScore >= 70) return 'C';
+    if (overallScore >= 90) {
+      return 'A';
+    }
+    if (overallScore >= 80) {
+      return 'B';
+    }
+    if (overallScore >= 70) {
+      return 'C';
+    }
     return 'D';
   }
 
