@@ -95,7 +95,8 @@ export async function POST(request: NextRequest) {
     } catch (storageError) {
       console.error('❌ GCP 세션 생성 오류:', storageError);
       
-      // 모든 GCP 관련 에러에 대해 개발 모드로 폴백
+      // GCP 관련 에러인지 확인
+      const errorMessage = storageError instanceof Error ? storageError.message : String(storageError);
       const isGcpError = storageError instanceof Error && (
         storageError.message.includes('Configuration') ||
         storageError.message.includes('credentials') ||
@@ -107,35 +108,34 @@ export async function POST(request: NextRequest) {
       );
       
       if (isGcpError) {
-        console.log('🔧 프로덕션 환경에서 GCP 오류 → 개발 모드로 폴백');
-        
-        // 개발 모드 세션 생성
-        const devSessionId = `prod-fallback-${uploadId}`;
+        console.log('❌ GCP 설정 오류 감지 → 정확한 에러 메시지 반환');
         
         return NextResponse.json({
-          success: true,
-          message: '프로덕션 환경: GCP 설정 오류로 인한 폴백 모드',
-          session: {
-            sessionId: devSessionId,
-            status: 'production-fallback',
-            createdAt: new Date().toISOString(),
-            uploadId: uploadId,
-          },
-          file: {
-            gsUri,
-            fileName,
-            originalName,
-            fileSize,
-            contentType,
-          },
-          userInfo,
-          uploadTime: new Date().toISOString(),
-          isDevelopment: true,
-          fallbackReason: 'GCP configuration error in production'
-        });
+          success: false,
+          error: '업로드는 완료되었으나 세션 생성에 실패했습니다.',
+          details: {
+            reason: 'Google Cloud Platform 환경변수가 설정되지 않았습니다.',
+            uploadedFile: {
+              fileName: originalName,
+              fileSize: `${Math.round(fileSize / 1024 / 1024)}MB`,
+              uploadTime: new Date().toISOString()
+            },
+            requiredActions: [
+              '1. Vercel 대시보드에서 다음 환경변수를 설정하세요:',
+              '   - GOOGLE_CLOUD_PROJECT_ID=your-project-id',
+              '   - FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."',
+              '   - FIREBASE_ADMIN_CLIENT_EMAIL=firebase-adminsdk-xxx@your-project.iam.gserviceaccount.com',
+              '   - GOOGLE_CLOUD_BUCKET=your-storage-bucket',
+              '2. 환경변수 설정 후 동일한 파일을 다시 업로드하세요.',
+              '3. 업로드된 파일은 임시로 저장되었지만 분석할 수 없습니다.'
+            ],
+            supportLink: '자세한 설정 방법은 VERCEL_ENV_SETUP.md를 참고하세요.',
+            canRetry: true
+          }
+        }, { status: 424 }); // Failed Dependency
       }
       
-      // GCP 관련 에러가 아닌 경우는 다시 던지기
+      // 다른 종류의 GCP 에러
       throw storageError;
     }
 

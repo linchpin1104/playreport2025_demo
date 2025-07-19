@@ -50,6 +50,12 @@ interface ComprehensiveAnalysisResponse {
   startTime: string;
   endTime?: string;
   totalProgress: number;
+  error?: string;
+  details?: {
+    reason: string;
+    requiredActions: string[];
+    supportLink: string;
+  };
 }
 
 // 분석 단계 정의
@@ -64,162 +70,7 @@ const ANALYSIS_STEPS: Array<{id: string, name: string, description: string}> = [
   { id: 'finalization', name: '완료', description: '분석 결과를 저장하고 완료합니다' }
 ];
 
-// Mock 분석 결과 생성 함수들
-function generateMockVideoAnalysis(sessionId: string, fileName: string) {
-  return {
-    success: true,
-    message: 'Mock video analysis completed (GCP fallback mode)',
-    sessionId,
-    fileName,
-    analysisResults: {
-      peopleDetection: {
-        detected: true,
-        count: 2,
-        confidence: 0.9,
-        boundingBoxes: [
-          { x: 100, y: 100, width: 200, height: 300, confidence: 0.95, label: 'parent' },
-          { x: 350, y: 120, width: 180, height: 280, confidence: 0.85, label: 'child' }
-        ]
-      },
-      speechTranscription: [
-        {
-          text: '안녕하세요. 오늘은 블록 놀이를 해볼까요?',
-          startTime: 5.0,
-          endTime: 8.5,
-          confidence: 0.9,
-          speaker: 'parent'
-        },
-        {
-          text: '네! 좋아요. 집을 만들어보자.',
-          startTime: 9.0,
-          endTime: 12.0,
-          confidence: 0.85,
-          speaker: 'child'
-        },
-        {
-          text: '와! 정말 멋진 집이네요. 어떤 색깔 블록을 더 넣어볼까요?',
-          startTime: 20.0,
-          endTime: 24.5,
-          confidence: 0.88,
-          speaker: 'parent'
-        }
-      ],
-      faceAnalysis: {
-        facesDetected: 2,
-        emotionAnalysis: [
-          { emotion: 'happy', confidence: 0.8, timestamp: 10.5 },
-          { emotion: 'excited', confidence: 0.75, timestamp: 15.2 },
-          { emotion: 'joyful', confidence: 0.82, timestamp: 25.0 }
-        ]
-      },
-      sceneAnalysis: {
-        objects: [
-          { object: 'blocks', confidence: 0.9, count: 15 },
-          { object: 'toys', confidence: 0.85, count: 8 },
-          { object: 'table', confidence: 0.8, count: 1 }
-        ],
-        activities: ['playing', 'building', 'interacting', 'communicating']
-      }
-    },
-    processingTime: 3000,
-    isMockData: true,
-    fallbackReason: 'GCP permission denied'
-  };
-}
-
-function generateMockVoiceAnalysis() {
-  return {
-    transcription: {
-      segments: [
-        {
-          text: '안녕하세요. 오늘은 블록 놀이를 해볼까요?',
-          startTime: 5.0,
-          endTime: 8.5,
-          speaker: 'parent',
-          confidence: 0.9
-        },
-        {
-          text: '네! 좋아요. 집을 만들어보자.',
-          startTime: 9.0,
-          endTime: 12.0,
-          speaker: 'child',
-          confidence: 0.85
-        }
-      ],
-      totalSpeechTime: 15.5,
-      silenceRatio: 0.2
-    },
-    languageAnalysis: {
-      parentUtterances: 5,
-      childUtterances: 8,
-      averageUtteranceLength: {
-        parent: 8.2,
-        child: 4.5
-      },
-      vocabularyRichness: {
-        parent: 85,
-        child: 45
-      }
-    },
-    interactionMetrics: {
-      turnTaking: 0.8,
-      responseLatency: 1.2,
-      overlappingSpeech: 0.1
-    },
-    isMockData: true
-  };
-}
-
-function generateMockComprehensiveAnalysis() {
-  return {
-    overallScore: 78,
-    categories: {
-      physicalInteraction: {
-        score: 82,
-        metrics: {
-          proximity: 0.85,
-          movementSynchrony: 0.72,
-          touchFrequency: 0.68
-        }
-      },
-      verbalInteraction: {
-        score: 75,
-        metrics: {
-          conversationTurns: 12,
-          vocabularyDiversity: 0.7,
-          responsiveness: 0.8
-        }
-      },
-      emotionalEngagement: {
-        score: 88,
-        metrics: {
-          smileFrequency: 0.9,
-          eyeContact: 0.85,
-          positiveAffect: 0.92
-        }
-      },
-      playQuality: {
-        score: 80,
-        metrics: {
-          jointAttention: 0.85,
-          cooperativePlay: 0.75,
-          creativity: 0.8
-        }
-      }
-    },
-    insights: [
-      '부모-자녀 간 정서적 교감이 매우 좋습니다.',
-      '협력적인 놀이 패턴이 잘 나타나고 있습니다.',
-      '언어적 상호작용을 더 늘려보세요.'
-    ],
-    recommendations: [
-      '매일 30분 이상 자유놀이 시간을 가져보세요.',
-      '아이의 발화에 더 적극적으로 반응해주세요.',
-      '다양한 놀잇감을 활용한 창의적 놀이를 시도해보세요.'
-    ],
-    isMockData: true
-  };
-}
+// ComprehensiveAnalysisResponse 인터페이스
 
 export async function POST(request: NextRequest) {
   const startTime = new Date().toISOString();
@@ -373,17 +224,50 @@ export async function POST(request: NextRequest) {
                                errorMessage.includes('authentication');
       
       if (isPermissionError) {
-        logger.info('🔧 GCP permission error detected → using mock analysis results');
+        logger.error('❌ GCP permission error detected');
         
-        // Mock 비디오 분석 결과 생성
-        videoAnalysisResult = generateMockVideoAnalysis(sessionId, sessionData.metadata.fileName);
+        await updateStep(storage, sessionId, steps, 'video_analysis', 'error', 0, 
+          'GCP 권한 오류: 비디오 분석 서비스에 접근할 수 없습니다.',
+          'Google Cloud Platform 환경변수 설정이 필요합니다.'
+        );
         
-        await updateStep(storage, sessionId, steps, 'video_analysis', 'completed', 100, 'Mock 비디오 분석 완료 (GCP 권한 대체)');
+        // 에러 응답으로 분석 중단
+        const errorResponse: ComprehensiveAnalysisResponse = {
+          sessionId,
+          status: 'error',
+          steps,
+          startTime: response.startTime,
+          endTime: new Date().toISOString(),
+          totalProgress: 0,
+          error: 'GCP 권한 오류로 인해 비디오 분석을 수행할 수 없습니다.',
+          details: {
+            reason: 'Google Cloud Platform 서비스 계정 권한이 설정되지 않았습니다.',
+            requiredActions: [
+              '1. Vercel 대시보드에서 다음 환경변수를 설정하세요:',
+              '   - GOOGLE_CLOUD_PROJECT_ID=your-project-id',
+              '   - FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."',
+              '   - FIREBASE_ADMIN_CLIENT_EMAIL=firebase-adminsdk-xxx@your-project.iam.gserviceaccount.com',
+              '   - GOOGLE_CLOUD_BUCKET=your-storage-bucket',
+              '2. GCP 서비스 계정에 다음 권한을 부여하세요:',
+              '   - Cloud Storage Object Viewer',
+              '   - Cloud Video Intelligence API User', 
+              '   - Firestore User',
+              '3. 환경변수 설정 후 새로운 영상을 업로드하세요.'
+            ],
+            supportLink: '자세한 설정 방법은 VERCEL_ENV_SETUP.md를 참고하세요.'
+          }
+        };
+
+        return NextResponse.json(errorResponse, { status: 424 }); // Failed Dependency
         
       } else {
-        // GCP 권한 문제가 아닌 다른 오류의 경우
-        await updateStep(storage, sessionId, steps, 'video_analysis', 'error', 0, '비디오 분석 실패', errorMessage);
-        throw error;
+        // 다른 종류의 오류
+        await updateStep(storage, sessionId, steps, 'video_analysis', 'error', 0, 
+          '비디오 분석 실패', 
+          errorMessage
+        );
+        
+        throw error; // 기존 에러 처리로 전달
       }
     }
     
