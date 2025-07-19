@@ -1,0 +1,31 @@
+{
+  "sessionId": "session_1752897757203_sfcxv9tiz",
+  "userInfo": {
+    "caregiverName": "이혜린",
+    "phoneNumber": "01052995980",
+    "caregiverType": "아빠",
+    "childAge": 3,
+    "childName": "ㅁㅁ",
+    "childGender": "남자",
+    "additionalNotes": "",
+    "submittedAt": "2025-07-19T04:02:24.474Z"
+  },
+  "analysis": {
+    "participantCount": 0,
+    "videoDuration": 0,
+    "safetyScore": 0
+  },
+  "tags": [],
+  "metadata": {
+    "fileName": "videos/07d80e05-6903-45d3-a93b-f2ec93cfa22b.mp4",
+    "originalName": "855289-hd_1920_1080_25fps.mp4",
+    "fileSize": 9218257,
+    "uploadedAt": "2025-07-19T04:02:37.203Z",
+    "analyzedAt": "2025-07-19T04:02:37.203Z",
+    "status": "comprehensive_analysis_started",
+    "lastUpdated": "2025-07-19T04:04:03.132Z"
+  },
+  "paths": {
+    "rawDataPath": "gs://full-kids-tracker-videos/videos/07d80e05-6903-45d3-a93b-f2ec93cfa22b.mp4"
+  }
+}

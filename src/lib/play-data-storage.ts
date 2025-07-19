@@ -185,7 +185,7 @@ export class PlayDataStorage {
     const session: PlayAnalysisSession = {
       sessionId,
       metadata: {
-        sessionId: sessionId,  // 명시적으로 작성
+        sessionId,
         userId: 'anonymous',
         fileName,
         originalName,

@@ -156,7 +156,7 @@ function AnalysisPageContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sessionId: sessionId,
+          sessionId,
           videoPath: `${sessionId}.mp4`
         }),
       });
@@ -206,7 +206,7 @@ function AnalysisPageContent() {
 
   // 현재 활성 단계 계산
   const getCurrentStepInfo = () => {
-    if (!analysisResult?.steps) return null;
+    if (!analysisResult?.steps) {return null;}
     
     const activeStep = analysisResult.steps.find(step => step.status === 'in_progress') || 
                       analysisResult.steps.find(step => step.status === 'pending');

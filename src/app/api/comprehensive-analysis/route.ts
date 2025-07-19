@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PlayDataStorage } from '@/lib/play-data-storage';
-import { PlayAnalysisExtractor } from '@/lib/play-analysis-extractor';
-import { PlayEvaluationSystem } from '@/lib/play-evaluation-system';
-import config from '@/lib/config';
 import { v4 as uuidv4 } from 'uuid';
+import config from '@/lib/config';
+import { PlayAnalysisExtractor } from '@/lib/play-analysis-extractor';
+import { PlayDataStorage } from '@/lib/play-data-storage';
+import { PlayEvaluationSystem } from '@/lib/play-evaluation-system';
 
 /**
  * 통합 종합 분석 API
@@ -149,14 +149,14 @@ export async function POST(request: NextRequest) {
     try {
       // 기존 분석 결과가 있는지 확인
       const existingCore = await storage.getPlayCore(sessionId);
-      if (existingCore && existingCore.rawData) {
+      if (existingCore?.rawData) {
         console.log('🔍 Found existing analysis results, using cached data');
         videoAnalysisResult = {
           success: true,
           analysisResults: existingCore.rawData,
           metadata: {
             fileName: sessionData.metadata.fileName,
-            sessionId: sessionId,
+            sessionId,
             processingTime: Date.now(),
             analysisMode: 'cached'
           }
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            sessionId: sessionId,
+            sessionId,
             gsUri: sessionData.paths.rawDataPath || `gs://${config.googleCloud.storageBucket}/${sessionData.metadata.fileName}`,
             fileName: sessionData.metadata.fileName
           })
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
         console.log(`📡 Video analysis API response status: ${videoAnalysisResponse.status}`);
         console.log(`📡 Calling URL: ${apiUrl}/api/analyze`);
         console.log(`📡 Request body:`, { 
-          sessionId: sessionId,
+          sessionId,
           gsUri: sessionData.paths.rawDataPath || `gs://${config.googleCloud.storageBucket}/${sessionData.metadata.fileName}`,
           fileName: sessionData.metadata.fileName
         });

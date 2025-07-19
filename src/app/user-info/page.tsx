@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { User, Baby, Phone, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { UserInfo } from '@/types';
-import { User, Baby, Phone, FileText } from 'lucide-react';
 
 export default function UserInfoPage() {
   const router = useRouter();

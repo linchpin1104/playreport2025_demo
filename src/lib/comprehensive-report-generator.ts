@@ -286,13 +286,13 @@ export class ComprehensiveReportGenerator {
    * 등급 결정
    */
   private determineGrade(score: number): ComprehensiveReport['executiveSummary']['grade'] {
-    if (score >= 95) return 'A+';
-    if (score >= 90) return 'A';
-    if (score >= 85) return 'B+';
-    if (score >= 80) return 'B';
-    if (score >= 75) return 'C+';
-    if (score >= 70) return 'C';
-    if (score >= 60) return 'D';
+    if (score >= 95) {return 'A+';}
+    if (score >= 90) {return 'A';}
+    if (score >= 85) {return 'B+';}
+    if (score >= 80) {return 'B';}
+    if (score >= 75) {return 'C+';}
+    if (score >= 70) {return 'C';}
+    if (score >= 60) {return 'D';}
     return 'F';
   }
 
@@ -639,66 +639,66 @@ export class ComprehensiveReportGenerator {
 
   // 헬퍼 메서드들
   private scoreToGrade(score: number): string {
-    if (score >= 90) return 'A';
-    if (score >= 80) return 'B';
-    if (score >= 70) return 'C';
+    if (score >= 90) {return 'A';}
+    if (score >= 80) {return 'B';}
+    if (score >= 70) {return 'C';}
     return 'D';
   }
 
   private generatePhysicalStrengths(physical: any): string[] {
     const strengths = [];
-    if (physical.movement_synchronization > 0.8) strengths.push('우수한 움직임 동조성');
-    if (physical.shared_activities > 0.8) strengths.push('높은 공유 활동 참여도');
+    if (physical.movement_synchronization > 0.8) {strengths.push('우수한 움직임 동조성');}
+    if (physical.shared_activities > 0.8) {strengths.push('높은 공유 활동 참여도');}
     return strengths.length > 0 ? strengths : ['적절한 물리적 상호작용'];
   }
 
   private generatePhysicalImprovements(physical: any): string[] {
     const improvements = [];
-    if (physical.movement_synchronization < 0.6) improvements.push('움직임 동조성 개선');
-    if (physical.shared_activities < 0.6) improvements.push('공유 활동 증가');
+    if (physical.movement_synchronization < 0.6) {improvements.push('움직임 동조성 개선');}
+    if (physical.shared_activities < 0.6) {improvements.push('공유 활동 증가');}
     return improvements;
   }
 
   private generateVerbalStrengths(verbal: any): string[] {
     const strengths = [];
-    if (verbal.response_quality > 0.8) strengths.push('높은 응답 품질');
-    if (verbal.turn_taking_quality > 0.8) strengths.push('우수한 대화 턴테이킹');
+    if (verbal.response_quality > 0.8) {strengths.push('높은 응답 품질');}
+    if (verbal.turn_taking_quality > 0.8) {strengths.push('우수한 대화 턴테이킹');}
     return strengths.length > 0 ? strengths : ['기본적인 언어 상호작용'];
   }
 
   private generateVerbalImprovements(verbal: any): string[] {
     const improvements = [];
-    if (verbal.conversation_balance < 0.3) improvements.push('대화 균형 개선');
-    if (verbal.language_development_support < 0.6) improvements.push('언어 발달 지원 강화');
+    if (verbal.conversation_balance < 0.3) {improvements.push('대화 균형 개선');}
+    if (verbal.language_development_support < 0.6) {improvements.push('언어 발달 지원 강화');}
     return improvements;
   }
 
   private generateEmotionalStrengths(emotional: any): string[] {
     const strengths = [];
-    if (emotional.positive_affect_sharing > 0.8) strengths.push('활발한 긍정 감정 공유');
-    if (emotional.emotional_support > 0.8) strengths.push('충분한 감정적 지원');
+    if (emotional.positive_affect_sharing > 0.8) {strengths.push('활발한 긍정 감정 공유');}
+    if (emotional.emotional_support > 0.8) {strengths.push('충분한 감정적 지원');}
     return strengths.length > 0 ? strengths : ['기본적인 감정 상호작용'];
   }
 
   private generateEmotionalImprovements(emotional: any): string[] {
     const improvements = [];
-    if (emotional.emotional_mirroring < 0.6) improvements.push('감정 미러링 개선');
-    if (emotional.co_regulation < 0.6) improvements.push('공동 감정 조절 강화');
+    if (emotional.emotional_mirroring < 0.6) {improvements.push('감정 미러링 개선');}
+    if (emotional.co_regulation < 0.6) {improvements.push('공동 감정 조절 강화');}
     return improvements;
   }
 
   private generateParentStrengths(profile: any): string[] {
     const strengths = [];
-    if (profile.engagement > 0.8) strengths.push('높은 참여도');
-    if (profile.responsiveness > 0.8) strengths.push('우수한 반응성');
-    if (profile.supportiveness > 0.8) strengths.push('충분한 지원');
+    if (profile.engagement > 0.8) {strengths.push('높은 참여도');}
+    if (profile.responsiveness > 0.8) {strengths.push('우수한 반응성');}
+    if (profile.supportiveness > 0.8) {strengths.push('충분한 지원');}
     return strengths.length > 0 ? strengths : ['기본적인 양육 역량'];
   }
 
   private generateParentGrowthAreas(profile: any): string[] {
     const areas = [];
-    if (profile.emotional_regulation < 0.6) areas.push('감정 조절 기술');
-    if (profile.responsiveness < 0.6) areas.push('아이 신호에 대한 반응성');
+    if (profile.emotional_regulation < 0.6) {areas.push('감정 조절 기술');}
+    if (profile.responsiveness < 0.6) {areas.push('아이 신호에 대한 반응성');}
     return areas;
   }
 
@@ -708,22 +708,22 @@ export class ComprehensiveReportGenerator {
 
   private generateParentSupportNeeds(profile: any): string[] {
     const needs = [];
-    if (profile.emotional_regulation < 0.7) needs.push('감정 조절 가이드');
-    if (profile.supportiveness < 0.7) needs.push('효과적 지원 방법');
+    if (profile.emotional_regulation < 0.7) {needs.push('감정 조절 가이드');}
+    if (profile.supportiveness < 0.7) {needs.push('효과적 지원 방법');}
     return needs;
   }
 
   private generateChildStrengths(profile: any): string[] {
     const strengths = [];
-    if (profile.participation > 0.8) strengths.push('적극적 참여');
-    if (profile.expressiveness > 0.8) strengths.push('풍부한 표현력');
+    if (profile.participation > 0.8) {strengths.push('적극적 참여');}
+    if (profile.expressiveness > 0.8) {strengths.push('풍부한 표현력');}
     return strengths.length > 0 ? strengths : ['기본적인 참여 능력'];
   }
 
   private generateChildGrowthAreas(profile: any): string[] {
     const areas = [];
-    if (profile.emotional_expression < 0.6) areas.push('감정 표현 능력');
-    if (profile.receptiveness < 0.6) areas.push('수용성 개선');
+    if (profile.emotional_expression < 0.6) {areas.push('감정 표현 능력');}
+    if (profile.receptiveness < 0.6) {areas.push('수용성 개선');}
     return areas;
   }
 
@@ -733,15 +733,15 @@ export class ComprehensiveReportGenerator {
 
   private generateChildSupportNeeds(profile: any): string[] {
     const needs = [];
-    if (profile.emotional_expression < 0.7) needs.push('감정 표현 지원');
-    if (profile.participation < 0.7) needs.push('참여 동기 부여');
+    if (profile.emotional_expression < 0.7) {needs.push('감정 표현 지원');}
+    if (profile.participation < 0.7) {needs.push('참여 동기 부여');}
     return needs;
   }
 
   private determineCommunicationStyle(profile: any): string {
-    if (profile.engagement && profile.engagement > 0.8) return '적극적';
-    if (profile.participation && profile.participation > 0.8) return '활발한';
-    if (profile.expressiveness && profile.expressiveness > 0.7) return '표현적';
+    if (profile.engagement && profile.engagement > 0.8) {return '적극적';}
+    if (profile.participation && profile.participation > 0.8) {return '활발한';}
+    if (profile.expressiveness && profile.expressiveness > 0.7) {return '표현적';}
     return '온화한';
   }
 } 

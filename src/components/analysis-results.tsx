@@ -1,14 +1,14 @@
 'use client';
 
+import { Loader2, Download, AlertCircle } from 'lucide-react';
 import React, { useState, useMemo, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VideoIntelligenceResults } from '@/types/video-analysis';
-import { Loader2, Download, AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AnalysisResultsProps {
   sessionId: string;
@@ -169,7 +169,7 @@ export default function AnalysisResults({ sessionId }: AnalysisResultsProps) {
 
   // JSON 다운로드 기능
   const handleDownloadJSON = () => {
-    if (!sessionData) return;
+    if (!sessionData) {return;}
 
     const analysisData = {
       metadata: {

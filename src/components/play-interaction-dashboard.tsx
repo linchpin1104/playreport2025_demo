@@ -1,12 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { PlayAnalysisSession } from '@/lib/play-data-storage';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  LineElement,
+  PointElement,
+  RadialLinearScale,
+} from 'chart.js';
 import { 
   Calendar, 
   Clock, 
@@ -26,23 +32,17 @@ import {
   Lightbulb,
   ArrowLeft
 } from 'lucide-react';
-
-// Chart.js imports
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  LineElement,
-  PointElement,
-  RadialLinearScale,
-} from 'chart.js';
+import React, { useState, useEffect } from 'react';
 import { Bar, Doughnut, Line, Pie, Radar } from 'react-chartjs-2';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PlayAnalysisSession } from '@/lib/play-data-storage';
+
+// Chart.js imports
 
 // Register Chart.js components
 ChartJS.register(

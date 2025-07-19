@@ -36,7 +36,7 @@ interface PlayEvaluationResult {
 }
 
 export class PlayEvaluationSystem {
-  private evaluationVersion = '2.0.0';
+  private readonly evaluationVersion = '2.0.0';
 
   /**
    * 통합 분석 결과를 기반으로 놀이 세션을 종합 평가

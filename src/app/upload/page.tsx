@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileVideo, Upload, CheckCircle, AlertTriangle, User, Baby } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { UserInfo } from '@/types';
 
 export default function UploadPage() {
@@ -54,7 +54,7 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !userInfo) return;
+    if (!selectedFile || !userInfo) {return;}
 
     setIsUploading(true);
     setError(null);
@@ -218,7 +218,7 @@ export default function UploadPage() {
                     accept="video/*"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) handleFileSelect(file);
+                      if (file) {handleFileSelect(file);}
                     }}
                     className="hidden"
                   />

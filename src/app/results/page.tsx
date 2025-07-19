@@ -3,10 +3,10 @@
 import { Loader2, AlertCircle, ArrowLeft, Download, User, Baby } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import PlayInteractionDashboard from '@/components/play-interaction-dashboard';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlayAnalysisSession } from '@/lib/play-data-storage';
 
 // useSearchParams를 사용하는 별도의 클라이언트 컴포넌트

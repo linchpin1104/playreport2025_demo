@@ -1,10 +1,10 @@
 'use client';
 
+import { FileVideo, Upload, X } from 'lucide-react';
 import React, { useState, useCallback } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FileVideo, Upload, X } from 'lucide-react';
 
 interface FileUploadResponse {
   success: boolean;
@@ -40,11 +40,11 @@ export default function VideoUpload({
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) {return '0 Bytes';}
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))  } ${  sizes[i]}`;
   };
 
   const isValidVideoFile = (fileName: string): boolean => {
@@ -90,7 +90,7 @@ export default function VideoUpload({
   }, [maxFileSize, onError]);
 
   const handleUpload = useCallback(async () => {
-    if (!file) return;
+    if (!file) {return;}
 
     setUploading(true);
     setUploadProgress(0);

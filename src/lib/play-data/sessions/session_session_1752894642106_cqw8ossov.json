@@ -1,0 +1,90 @@
+{
+  "sessionId": "session_1752894642106_cqw8ossov",
+  "userInfo": {
+    "caregiverName": "이혜린",
+    "phoneNumber": "01052995980",
+    "caregiverType": "아빠",
+    "childAge": 3,
+    "childName": "ㅁㅁ",
+    "childGender": "여자",
+    "additionalNotes": "",
+    "submittedAt": "2025-07-19T03:10:20.095Z"
+  },
+  "analysis": {
+    "participantCount": 0,
+    "videoDuration": 0,
+    "safetyScore": 0,
+    "overallScore": 73,
+    "keyInsights": [
+      "부모-자녀 간 활발한 상호작용이 관찰되었습니다",
+      "언어적 소통의 질이 우수합니다",
+      "감정적 동조성이 양호한 수준입니다",
+      "전반적으로 건강한 놀이 패턴을 보입니다"
+    ]
+  },
+  "tags": [],
+  "metadata": {
+    "fileName": "videos/dc674fef-0f46-4121-a6e4-fcda52aa187e.mp4",
+    "originalName": "855289-hd_1920_1080_25fps.mp4",
+    "fileSize": 9218257,
+    "uploadedAt": "2025-07-19T03:10:42.106Z",
+    "analyzedAt": "2025-07-19T03:10:42.106Z",
+    "status": "comprehensive_analysis_completed",
+    "lastUpdated": "2025-07-19T03:12:08.756Z"
+  },
+  "paths": {
+    "rawDataPath": "gs://full-kids-tracker-videos/videos/dc674fef-0f46-4121-a6e4-fcda52aa187e.mp4",
+    "evaluationPath": "/Users/healin/Downloads/develop/play_report/src/lib/play-data/evaluations/session_session_1752894642106_cqw8ossov_evaluation.json",
+    "reportPath": "/Users/healin/Downloads/develop/play_report/src/lib/play-data/reports/session_session_1752894642106_cqw8ossov_report.json"
+  },
+  "evaluation": {
+    "sessionId": "session_1752894642106_cqw8ossov",
+    "scores": {
+      "overall": 73,
+      "interactionQuality": 75,
+      "developmentSupport": 69,
+      "playEnvironment": 82,
+      "communicationScore": 67,
+      "emotionalConnection": 72,
+      "attentionSpan": 90,
+      "creativity": 45
+    },
+    "insights": {
+      "strengths": [],
+      "improvements": [
+        "더 풍부한 언어적 상호작용을 위해 대화를 늘려보세요"
+      ],
+      "developmentGoals": [
+        "균형있는 언어 및 사회성 발달 지원",
+        "창의적 사고와 문제해결 능력 향상",
+        "집중력과 지속성 강화"
+      ],
+      "recommendations": [
+        "긍정적인 피드백과 격려를 더 자주 표현해보세요",
+        "자녀의 주도권을 더 존중하고 지지해주세요",
+        "매일 30분 이상의 질적 놀이 시간을 확보하세요",
+        "자녀의 감정을 언어로 표현하도록 도와주세요"
+      ]
+    },
+    "grade": "C",
+    "evaluatedAt": "2025-07-19T03:12:08.621Z",
+    "metadata": {
+      "evaluationVersion": "2.0.0",
+      "criteria": [
+        "physical_interaction",
+        "emotional_connection",
+        "language_development",
+        "play_patterns",
+        "attention_span",
+        "creativity_indicators"
+      ],
+      "processingTime": 0
+    }
+  },
+  "integratedAnalysis": {
+    "overallScore": 94.88307311743652,
+    "interactionQuality": 82.83431435581966,
+    "completedAt": "2025-07-19T03:12:03.534Z",
+    "processingSteps": 4
+  }
+}

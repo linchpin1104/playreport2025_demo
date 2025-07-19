@@ -1,0 +1,42 @@
+{
+  "sessionId": "session_1752890309553_63svl73wu",
+  "generatedAt": "2025-07-19T02:03:52.057Z",
+  "reportData": {
+    "sessionId": "session_1752890309553_63svl73wu",
+    "executiveSummary": "세션 session_1752890309553_63svl73wu의 놀이 상호작용 분석이 완료되었습니다. 전체 점수는 77.6점으로 C 등급입니다.",
+    "keyInsights": [
+      "부모-자녀 간 활발한 상호작용이 관찰되었습니다",
+      "언어적 소통의 질이 우수합니다",
+      "감정적 동조성이 양호한 수준입니다",
+      "전반적으로 건강한 놀이 패턴을 보입니다"
+    ],
+    "detailedAnalysis": {
+      "videoAnalysis": {
+        "duration": 300,
+        "objectsDetected": 0,
+        "facesDetected": 0,
+        "speechSegments": 0
+      },
+      "voiceAnalysis": {
+        "speakerCount": 2,
+        "totalWords": 0,
+        "interactionQuality": 0.5,
+        "emotionalSynchrony": 0.5
+      },
+      "integratedScores": {
+        "overall": 77.63995042011801,
+        "physical": 86.04094411256592,
+        "emotional": 50,
+        "language": 77.58160168348141
+      }
+    },
+    "recommendations": [
+      "긍정적인 피드백과 격려를 더 자주 표현해보세요",
+      "자녀의 주도권을 더 존중하고 지지해주세요",
+      "매일 30분 이상의 질적 놀이 시간을 확보하세요",
+      "자녀의 감정을 언어로 표현하도록 도와주세요"
+    ],
+    "generatedAt": "2025-07-19T02:03:52.057Z",
+    "version": "2.0.0"
+  }
+}

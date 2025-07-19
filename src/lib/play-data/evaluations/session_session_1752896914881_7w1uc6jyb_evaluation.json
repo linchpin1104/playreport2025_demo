@@ -1,0 +1,49 @@
+{
+  "sessionId": "session_1752896914881_7w1uc6jyb",
+  "savedAt": "2025-07-19T03:49:54.339Z",
+  "evaluation": {
+    "sessionId": "session_1752896914881_7w1uc6jyb",
+    "scores": {
+      "overall": 74,
+      "interactionQuality": 79,
+      "developmentSupport": 75,
+      "playEnvironment": 83,
+      "communicationScore": 67,
+      "emotionalConnection": 68,
+      "attentionSpan": 90,
+      "creativity": 45
+    },
+    "insights": {
+      "strengths": [],
+      "improvements": [
+        "더 풍부한 언어적 상호작용을 위해 대화를 늘려보세요",
+        "감정적 연결과 공감 표현을 더 늘려보세요"
+      ],
+      "developmentGoals": [
+        "균형있는 언어 및 사회성 발달 지원",
+        "창의적 사고와 문제해결 능력 향상",
+        "집중력과 지속성 강화"
+      ],
+      "recommendations": [
+        "긍정적인 피드백과 격려를 더 자주 표현해보세요",
+        "자녀의 주도권을 더 존중하고 지지해주세요",
+        "매일 30분 이상의 질적 놀이 시간을 확보하세요",
+        "자녀의 감정을 언어로 표현하도록 도와주세요"
+      ]
+    },
+    "grade": "C",
+    "evaluatedAt": "2025-07-19T03:49:54.339Z",
+    "metadata": {
+      "evaluationVersion": "2.0.0",
+      "criteria": [
+        "physical_interaction",
+        "emotional_connection",
+        "language_development",
+        "play_patterns",
+        "attention_span",
+        "creativity_indicators"
+      ],
+      "processingTime": 0
+    }
+  }
+}
