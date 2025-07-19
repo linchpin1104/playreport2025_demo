@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json() as ComprehensiveAnalysisRequest;
     sessionId = body.sessionId || uuidv4();
     
-    logger.info(`🚀 Starting comprehensive analysis for session: ${sessionId}`);
+    logger.info(`Session ID: ${sessionId}`);
     
     const storage = new PlayDataStorage();
     const evaluationSystem = new PlayEvaluationSystem();
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       const gcpSession = await gcpStorage.getSession(sessionId);
       
       if (gcpSession) {
-        logger.info(`✅ Found session in GCP: ${sessionId}`);
+        logger.info(`✅ Session found in GCP: ${sessionId}`);
         // 타입 호환성을 위해 필요한 속성 추가
         sessionData = {
           ...gcpSession,
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
         throw new Error(`Session ${sessionId} not found in any storage`);
       }
     } else {
-      logger.info(`📋 Using existing session: ${sessionId}`);
+      logger.info(`✅ Session found: ${sessionId}`);
     }
 
     // sessionData null 체크 추가
@@ -183,12 +183,8 @@ export async function POST(request: NextRequest) {
           })
         });
         
-        logger.info(`📡 Video analysis API response status: ${videoAnalysisResponse.status}`);
-        logger.info(`📡 Calling URL: ${apiUrl}/api/analyze`);
-        logger.info(`📡 Request body:`, { 
-          sessionId,
-          gsUri: sessionData.paths.rawDataPath || `gs://${config.googleCloud.storageBucket}/${sessionData.metadata.fileName}`,
-          fileName: sessionData.metadata.fileName
+        logger.info(`✅ Video analysis API success`, { 
+          success: videoAnalysisResult.success ? 'Success' : 'Failed' 
         });
         
         if (!videoAnalysisResponse.ok) {
@@ -198,7 +194,7 @@ export async function POST(request: NextRequest) {
         }
         
         videoAnalysisResult = await videoAnalysisResponse.json();
-        logger.info(`✅ Video analysis API success:`, videoAnalysisResult.success ? 'Success' : 'Failed');
+        logger.info('Failed');
         
         // 🚨 핵심 수정: API 응답은 받았지만 분석이 실패한 경우 처리
         if (!videoAnalysisResult.success) {
@@ -210,7 +206,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (error) {
-      logger.error('⚠️ Video analysis failed:', error);
+      logger.error('⚠️ Video analysis failed:', error as Error);
       await updateStep(storage, sessionId, steps, 'video_analysis', 'error', 0, '비디오 분석 실패', error instanceof Error ? error.message : 'Unknown error');
       throw error;
     }
@@ -366,7 +362,7 @@ async function updateStep(
     }
   }
   
-  logger.info(`📊 Step ${stepId}: ${status} (${progress}%) - ${message}`);
+  logger.info(`${status} (${progress}%) - ${message}`);
   if (errorMessage) {
     logger.error(`❌ Step ${stepId} error: ${errorMessage}`);
   }
@@ -455,7 +451,7 @@ async function performRealVoiceAnalysis(voiceExtractionResult: any, videoAnalysi
 
 // 통합 분석 함수
 async function performIntegratedAnalysis(videoAnalysisResult: any, voiceAnalysisResult: any, sessionId: string) {
-  logger.info('🔄 Performing integrated analysis for session:', sessionId);
+  logger.info('🔄 Performing integrated analysis for session', { sessionId });
   
   // 실제 통합 분석 로직 구현
   const overallScore = 75 + Math.random() * 20; // 75-95 점
@@ -493,7 +489,7 @@ async function performIntegratedAnalysis(videoAnalysisResult: any, voiceAnalysis
 
 // 종합 리포트 생성 함수
 async function generateComprehensiveReport(sessionId: string, analysisResults: any) {
-  logger.info('📋 Generating comprehensive report for session:', sessionId);
+  logger.info('Generating comprehensive report for session:', sessionId);
   
   const { video, voice, integrated, evaluation } = analysisResults;
   

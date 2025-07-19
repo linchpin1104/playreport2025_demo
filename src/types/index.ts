@@ -261,7 +261,7 @@ export interface PlayAnalysisSession {
     uploadedAt: string;
     analyzedAt: string;
     lastUpdated: string;
-    status: 'uploaded' | 'processing' | 'completed' | 'failed' | 'core_extracted' | 'voice_analyzed' | 'evaluation_completed' | 'integrated_analysis_completed' | 'report_generated';
+    status: 'uploaded' | 'processing' | 'completed' | 'failed' | 'error' | 'core_extracted' | 'voice_analyzed' | 'evaluation_completed' | 'integrated_analysis_completed' | 'report_generated' | 'comprehensive_analysis_started' | 'comprehensive_analysis_completed';
   };
   paths: {
     videoUrl?: string;
@@ -271,6 +271,7 @@ export interface PlayAnalysisSession {
     voiceAnalysisPath?: string;
     evaluationPath?: string;
     integratedAnalysisPath?: string;
+    rawDataPath?: string;
   };
   analysis: {
     participantCount: number;
@@ -340,8 +341,39 @@ export interface AnalysisReport {
   };
 }
 
-// Re-export IntegratedAnalysisResult from its original location
-export type { IntegratedAnalysisResult } from '../lib/integrated-analysis-system';
+// IntegratedAnalysisResult interface (moved from lib to avoid circular dependency)
+export interface IntegratedAnalysisResult {
+  sessionInfo: {
+    sessionId: string;
+    duration: number;
+    participants: string[];
+    analysisTimestamp: string;
+  };
+  physicalInteraction: PhysicalInteractionResult;
+  languageInteraction: LanguageInteractionResult;
+  emotionalInteraction: EmotionalInteractionResult;
+  playPatterns: PlayPatternResult;
+  comprehensiveScores: {
+    physicalEngagement: number;
+    communicationQuality: number;
+    emotionalConnection: number;
+    playCreativity: number;
+    overallDevelopment: number;
+  };
+  developmentInsights: {
+    strengths: string[];
+    areasForImprovement: string[];
+    recommendations: string[];
+    developmentStage: string;
+  };
+  detailedReport: {
+    executiveSummary: string;
+    keyFindings: string[];
+    behaviorPatterns: string[];
+    interactionQuality: 'excellent' | 'good' | 'fair' | 'needs_improvement';
+    nextSteps: string[];
+  };
+}
 
 // Define supporting types locally to avoid circular dependencies
 export interface ParticipantAnalysis {
@@ -380,4 +412,101 @@ export interface GCPInteractionPattern {
   duration: number;
   quality: number;
   examples: string[];
+} 
+
+export interface FileUploadMetadata {
+  fileName: string;
+  originalName: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: string;
+}
+
+// Language Analysis Types (missing types)
+export interface SpeechAnalysisResult {
+  transcript: TranscriptEntry[];
+  speakerCount: number;
+  totalDuration: number;
+  confidence: number;
+}
+
+export interface LanguageInteractionResult {
+  speakerStats: Record<string, SpeakerStats>;
+  interactionMetrics: LanguageMetrics;
+  detailedMetrics: DetailedLanguageMetrics;
+  interactionPatterns: ConversationPattern;
+  qualityScore: number;
+}
+
+export interface LanguageMetrics {
+  turnTakingBalance: number;
+  responseAppropriateness: number;
+  communicationEffectiveness: number;
+  vocabularyDiversity: number;
+}
+
+export interface DetailedLanguageMetrics {
+  averageUtteranceLength: number;
+  turnFrequency: number;
+  responsiveness: number;
+  languageComplexity: LanguageComplexity;
+  vocabularyUsage: VocabularyUsage;
+}
+
+export interface SpeechPattern {
+  pattern: string;
+  frequency: number;
+  confidence: number;
+}
+
+export interface VocabularyUsage {
+  uniqueWords: number;
+  totalWords: number;
+  averageWordsPerUtterance: number;
+  complexityLevel: 'basic' | 'intermediate' | 'advanced';
+}
+
+export interface ConversationFlow {
+  transitions: number;
+  averageResponseTime: number;
+  interruptionRate: number;
+}
+
+export interface LanguageComplexity {
+  syntacticComplexity: number;
+  semanticRichness: number;
+  conversationalMaturity: number;
+}
+
+export interface ConversationPattern {
+  turnTaking: {
+    turnCount: number;
+    averageTurnDuration: number;
+    turnBalance: number;
+  };
+  turnCount: number;
+}
+
+export interface TranscriptEntry {
+  text: string;
+  speaker: string;
+  time: number;
+  startTime: number;
+  endTime: number;
+  confidence: number;
+}
+
+export interface SpeakerStats {
+  utteranceCount: number;
+  avgWordCount: number;
+  avgInterval: number;
+  totalWords: number;
+  dominanceScore: number;
+}
+
+export interface UtteranceClassification {
+  questions: number;
+  statements: number;
+  commands: number;
+  // responses: number; // This was causing an error
 } 
