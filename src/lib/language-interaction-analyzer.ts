@@ -1,7 +1,6 @@
 import { Logger } from './services/logger';
 import { 
-  SpeechAnalysisResult, 
-  LanguageInteractionResult,
+  SpeechAnalysisResult,
   LanguageMetrics,
   DetailedLanguageMetrics,
   SpeechPattern,
@@ -35,15 +34,12 @@ export interface SpeakerStats {
 }
 
 export interface ConversationPattern {
-  avgResponseTime: number;
+  turnTaking: {
+    turnCount: number;
+    averageTurnDuration: number;
+    turnBalance: number;
+  };
   turnCount: number;
-  initiationCount: Record<string, number>;
-  conversationFlow: Array<{
-    from: string;
-    to: string;
-    time: number;
-    responseTime: number;
-  }>;
 }
 
 export interface KeywordAnalysis {
@@ -151,7 +147,7 @@ export class LanguageInteractionAnalyzer {
         qualityScore
       };
     } catch (error) {
-      logger.error('❌ 언어 상호작용 분석 오류:', error);
+      logger.error('❌ 언어 상호작용 분석 오류:', error instanceof Error ? error : new Error(String(error)));
       return this.getDefaultResult();
     }
   }
@@ -190,6 +186,7 @@ export class LanguageInteractionAnalyzer {
           processedEntries.push({
             text: text.trim(),
             speaker,
+            time: startTime,
             startTime,
             endTime,
             confidence: bestAlternative.confidence ?? 0
@@ -202,13 +199,14 @@ export class LanguageInteractionAnalyzer {
           processedEntries.push({
             text: entry.text.trim(),
             speaker: entry.speaker,
+            time: entry.startTime ?? 0,
             startTime: entry.startTime ?? 0,
             endTime: entry.endTime || 1,
             confidence: entry.confidence ?? 0
           });
         }
       } catch (entryError) {
-        logger.warn('⚠️ transcript 항목 처리 중 오류:', entryError);
+        logger.warn('⚠️ transcript 항목 처리 중 오류:', entryError instanceof Error ? entryError : new Error(String(entryError)));
         continue;
       }
     }
@@ -275,10 +273,12 @@ export class LanguageInteractionAnalyzer {
   private analyzeInteractionPatterns(transcript: TranscriptEntry[]): ConversationPattern {
     if (transcript.length < 2) {
       return {
-        avgResponseTime: 0,
         turnCount: 0,
-        initiationCount: {},
-        conversationFlow: []
+        turnTaking: {
+          turnCount: 0,
+          averageTurnDuration: 0,
+          turnBalance: 0
+        }
       };
     }
 
@@ -318,11 +318,15 @@ export class LanguageInteractionAnalyzer {
     const quickResponses = patterns.responseTimes.filter((time: number) => time <= 2).length;
     const delayedResponses = patterns.responseTimes.filter((time: number) => time >= 5).length;
 
+    const speakers = Object.keys(patterns.initiationCount);
+
     return {
-      avgResponseTime: Math.round(avgResponseTime * 100) / 100,
       turnCount: patterns.turnTaking.length,
-      initiationCount: patterns.initiationCount,
-      conversationFlow: patterns.turnTaking.slice(0, 10) // 처음 10개만
+      turnTaking: {
+        turnCount: patterns.turnTaking.length,
+        averageTurnDuration: Math.round(avgResponseTime * 100) / 100,
+        turnBalance: speakers.length > 0 ? 1.0 / speakers.length : 0
+      }
     };
   }
 
@@ -489,7 +493,6 @@ export class LanguageInteractionAnalyzer {
         classification[speaker] = {
           total_utterances: 0,
           questions: 0,
-          responses: 0,
           initiations: 0,
           positive_words: 0,
           negative_words: 0,
@@ -567,7 +570,7 @@ export class LanguageInteractionAnalyzer {
    * 전체 점수 계산 (Python 기반)
    */
   private calculateOverallQualityScore(
-    speakerStats: SpeakerStats,
+    speakerStats: Record<string, SpeakerStats>,
     utteranceClassification: UtteranceClassification,
     keywordAnalysis: KeywordAnalysis,
     interactionPatterns: ConversationPattern,
@@ -581,7 +584,7 @@ export class LanguageInteractionAnalyzer {
     // 각 요소별 점수 계산
     const speakers = Object.keys(speakerStats);
     const avgUtteranceCount = speakers.length > 0 ? 
-      speakers.reduce((sum, speaker) => sum + speakerStats[speaker].utteranceCount, 0) / speakers.length : 0;
+      speakers.reduce((sum, speaker) => sum + (speakerStats[speaker]?.utteranceCount ?? 0), 0) / speakers.length : 0;
 
     const utteranceScore = Math.min(avgUtteranceCount / 10, 1.0); // 평균 10회 발화를 1.0으로 기준
 
@@ -688,10 +691,12 @@ export class LanguageInteractionAnalyzer {
         emotionalWords: []
       },
       interactionPatterns: {
-        avgResponseTime: 0,
-        turnCount: 0,
-        initiationCount: {},
-        conversationFlow: []
+        turnTaking: {
+          turnCount: 0,
+          averageTurnDuration: 0,
+          turnBalance: 0
+        },
+        turnCount: 0
       },
       complexity: {
         averageSentenceLength: 0,
