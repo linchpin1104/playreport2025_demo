@@ -1,4 +1,4 @@
-import { PlayAnalysisSession, PlayEvaluationResult, AnalysisReport, IntegratedAnalysisResult } from '../types';
+import { PlayAnalysisSession, PlayEvaluationResult, AnalysisReport, IntegratedAnalysisResult } from '@/types';
 import config from './config';
 import { Logger } from './services/logger';
 
@@ -101,6 +101,40 @@ export class PlayDataStorage {
     this.reports.clear();
     this.integratedAnalysis.clear();
     logger.info('🧹 All data cleared');
+  }
+
+  // Legacy method aliases for backward compatibility
+  async getSessionData(sessionId: string): Promise<PlayAnalysisSession | null> {
+    return this.getSession(sessionId);
+  }
+
+  async saveSessionData(sessionId: string, session: PlayAnalysisSession): Promise<void> {
+    return this.saveSession(session);
+  }
+
+  async saveEvaluationData(sessionId: string, evaluation: PlayEvaluationResult): Promise<void> {
+    return this.saveEvaluation(sessionId, evaluation);
+  }
+
+  async saveReportData(sessionId: string, report: AnalysisReport): Promise<void> {
+    return this.saveReport(sessionId, report);
+  }
+
+  // Additional methods used in comprehensive analysis
+  async getPlayCore(sessionId: string): Promise<any> {
+    // Placeholder implementation - returns basic session data
+    const session = await this.getSession(sessionId);
+    return session?.analysis || null;
+  }
+
+  async saveVoiceAnalysisData(sessionId: string, voiceAnalysis: any): Promise<void> {
+    // Store voice analysis data in session metadata
+    const session = await this.getSession(sessionId);
+    if (session) {
+      (session as any).voiceAnalysis = voiceAnalysis;
+      await this.saveSession(session);
+    }
+    logger.info(`🎤 Voice analysis data saved for session: ${sessionId}`);
   }
 }
 

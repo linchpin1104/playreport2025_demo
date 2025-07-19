@@ -2,7 +2,7 @@ import { Firestore } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
 import config from '@/lib/config';
 import { PlayAnalysisCore } from '@/lib/play-analysis-extractor';
-import { PlayAnalysisSession } from '@/lib/play-data-storage';
+import { PlayAnalysisSession } from '@/types';
 import { UserInfo } from '@/types';
 
 /**

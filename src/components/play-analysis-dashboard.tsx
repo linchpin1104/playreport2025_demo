@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlayAnalysisCore } from '@/lib/play-analysis-extractor';
-import { PlayAnalysisSession } from '@/lib/play-data-storage';
+import { PlayAnalysisSession } from '@/types';
 
 /**
  * 놀이 분석 결과 대시보드

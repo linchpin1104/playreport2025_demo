@@ -7,7 +7,7 @@ import PlayInteractionDashboard from '@/components/play-interaction-dashboard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlayAnalysisSession } from '@/lib/play-data-storage';
+import { PlayAnalysisSession } from '@/types';
 
 // useSearchParams를 사용하는 별도의 클라이언트 컴포넌트
 function ResultsPageContent() {
