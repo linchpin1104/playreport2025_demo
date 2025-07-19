@@ -514,7 +514,7 @@ export class AdvancedSpeakerDiarization {
   /**
    * 응답성 분석
    */
-  private analyzeResponsiveness(speaker1Segments: any[], speaker2Segments: any[]): any {
+  private analyzeResponsiveness(_speaker1Segments: any[], _speaker2Segments: any[]): any {
     // 실제 구현에서는 질문-답변 패턴 분석 등 수행
     return {
       averageResponseTime: 1.5,
@@ -526,7 +526,7 @@ export class AdvancedSpeakerDiarization {
   /**
    * 감정 동조 분석
    */
-  private analyzeEmotionalSynchrony(speaker1Segments: any[], speaker2Segments: any[]): any {
+  private analyzeEmotionalSynchrony(_speaker1Segments: any[], _speaker2Segments: any[]): any {
     // 실제 구현에서는 감정 상태 시계열 분석 등 수행
     return {
       concordance: 0.7,

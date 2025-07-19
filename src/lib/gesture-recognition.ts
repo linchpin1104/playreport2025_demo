@@ -269,7 +269,7 @@ export class GestureRecognitionEngine {
   }
 
   // 던지기 동작 감지
-  private async detectThrowingGestures(personDetections: any[], objectTracking: any[]): Promise<PlayGestureResult[]> {
+  private async detectThrowingGestures(personDetections: any, _objectTracking: any): Promise<PlayGestureResult[]> {
     const throwing: PlayGestureResult[] = [];
     
     // 팔 동작과 객체 움직임 패턴 분석

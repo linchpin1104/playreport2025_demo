@@ -2,7 +2,7 @@
 
 import { 
   FileText, Download, ArrowLeft, TrendingUp, Target, 
-  Lightbulb, Heart, Brain, Users, MessageCircle, Star,
+  Lightbulb, Heart, Brain, Users, Star,
   CheckCircle, AlertCircle, Info, Loader2
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';

@@ -1212,7 +1212,7 @@ export class GCPDataStorage {
           const matchesSearch = 
             data.metadata.originalName.toLowerCase().includes(searchLower) ||
             data.sessionId.toLowerCase().includes(searchLower) ||
-            (data.tags && data.tags.some((tag: string) => tag.toLowerCase().includes(searchLower)));
+            (data.tags?.some((tag: string) => tag.toLowerCase().includes(searchLower)));
           
           if (matchesSearch) {
             sessions.push(data);
