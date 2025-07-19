@@ -75,7 +75,25 @@ export class ConfigManager {
     this.setupValidators();
     this.setupRequired();
     this.config = this.loadConfig();
-    this.validateConfig();
+    
+    // 빌드 시점에서는 환경변수 검증을 스킵
+    if (!this.isBuildTime()) {
+      this.validateConfig();
+    }
+  }
+
+  /**
+   * 빌드 시점인지 확인
+   */
+  private isBuildTime(): boolean {
+    return (
+      process.env.NODE_ENV === 'production' && 
+      (
+        process.env.VERCEL === '1' || // Vercel 빌드 환경
+        process.env.CI === 'true' ||  // CI/CD 환경  
+        process.env.BUILD_ENV === 'build' // 명시적 빌드 환경
+      )
+    );
   }
 
   private setupValidators(): void {
@@ -315,6 +333,36 @@ export class ConfigManager {
     }
     
     this.config = { ...this.config, ...overrides };
+  }
+
+  /**
+   * 런타임에서 필요한 설정값 검증 (on-demand)
+   */
+  public validateRequiredConfig(requiredKeys: string[]): void {
+    if (this.isBuildTime()) {
+      return; // 빌드 시점에서는 스킵
+    }
+
+    const errors: string[] = [];
+    
+    for (const key of requiredKeys) {
+      const value = this.get(key);
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        errors.push(`Required configuration missing: ${key}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`Configuration validation failed:\n${errors.join('\n')}`);
+    }
+  }
+
+  /**
+   * 설정값이 사용 가능한지 확인 (에러를 던지지 않음)
+   */
+  public isConfigAvailable(key: string): boolean {
+    const value = this.get(key);
+    return !!(value && (typeof value !== 'string' || value.trim() !== ''));
   }
 }
 

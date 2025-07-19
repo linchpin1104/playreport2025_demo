@@ -7,6 +7,7 @@ import { ServiceResult } from '../interfaces';
 import { VideoAnalyzer } from '../video-analyzer';
 import { ErrorHandlingService } from './error-handling-service';
 import { Logger } from './logger';
+import { ConfigManager } from './config-manager';
 
 export interface VideoAnalysisRequest {
   sessionId?: string;
@@ -112,6 +113,29 @@ export class VideoAnalysisService {
       'complete-video-analysis',
       async () => {
         this.logger.info('Starting complete video analysis', { request });
+
+        // 런타임에서 필요한 환경변수 검증
+        try {
+          const configManager = ConfigManager.getInstance();
+          
+          // GCP 관련 설정이 필요한 경우에만 체크
+          if (request.options?.enableTranscription || 
+              request.options?.enableSpeakerDiarization || 
+              request.options?.enableComprehensiveAnalysis) {
+            configManager.validateRequiredConfig(['gcp.keyFile']);
+          }
+          
+          // OpenAI 관련 설정이 필요한 경우에만 체크
+          if (request.options?.enableComprehensiveAnalysis ||
+              request.options?.enableSentimentAnalysis) {
+            configManager.validateRequiredConfig(['apis.openai.apiKey']);
+          }
+        } catch (configError) {
+          // 환경변수 누락 시 경고 로그만 남기고 계속 진행 (개발 모드)
+          this.logger.warn('Configuration warning (continuing with limited features):', {
+            error: configError instanceof Error ? configError.message : String(configError)
+          });
+        }
 
         // 1. 비디오 경로 확인
         const videoPathResult = await this.resolveVideoPath(request);
