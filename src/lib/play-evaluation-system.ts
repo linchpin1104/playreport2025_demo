@@ -169,8 +169,8 @@ export class PlayEvaluationSystem {
    * 소통 점수 계산
    */
   private calculateCommunicationScore(language: any): number {
-    const turnTaking = language.turnTakingBalance || 0.7;
-    const responseAppropriate = language.responseAppropriateness || 0.8;
+    const turnTaking = language.turnTakingBalance ?? 0.7;
+    const responseAppropriate = language.responseAppropriateness ?? 0.8;
     const languageComplexity = language.complexityScore || 70;
     
     return (turnTaking * 40) + (responseAppropriate * 35) + (languageComplexity * 0.25);
@@ -180,8 +180,8 @@ export class PlayEvaluationSystem {
    * 감정적 연결 점수
    */
   private calculateEmotionalConnection(emotional: any): number {
-    const emotionalSync = emotional.emotionalSynchrony || 0.75;
-    const positiveInteractions = emotional.positiveInteractionRatio || 0.8;
+    const emotionalSync = emotional.emotionalSynchrony ?? 0.75;
+    const positiveInteractions = emotional.positiveInteractionRatio ?? 0.8;
     const conflictResolution = emotional.conflictResolutionScore || 70;
     
     return (emotionalSync * 35) + (positiveInteractions * 40) + (conflictResolution * 0.25);
@@ -206,7 +206,7 @@ export class PlayEvaluationSystem {
    */
   private calculateCreativity(play: any, language: any): number {
     const imaginativePlay = play.imaginativePlayScore || 70;
-    const problemSolving = play.problemSolvingInstances || 0;
+    const problemSolving = play.problemSolvingInstances ?? 0;
     const uniqueExpressions = language.uniqueExpressionCount || 5;
     
     const problemSolvingScore = Math.min(100, problemSolving * 20); // 문제 해결 1회당 20점

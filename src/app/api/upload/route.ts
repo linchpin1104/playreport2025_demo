@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     let userInfo: UserInfo;
     try {
       userInfo = JSON.parse(userInfoString);
-    } catch (_error) {
+    } catch {
       return NextResponse.json(
         { success: false, error: '사용자 정보 형식이 올바르지 않습니다.' },
         { status: 400 }

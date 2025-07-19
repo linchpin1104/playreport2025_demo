@@ -87,7 +87,6 @@ function AnalysisPageContent() {
   const [analysisResult, setAnalysisResult] = useState<ComprehensiveAnalysisResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   
   // 중복 호출 방지를 위한 refs
   const analysisStarted = useRef(false);
@@ -130,7 +129,6 @@ function AnalysisPageContent() {
     analysisStarted.current = true;
     setIsAnalyzing(true);
     setError(null);
-    setCurrentStepIndex(0);
 
     // 초기 상태 설정
     const initialSteps: AnalysisStep[] = Object.keys(STEP_INFO).map(stepKey => ({

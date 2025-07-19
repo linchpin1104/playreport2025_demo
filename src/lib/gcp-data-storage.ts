@@ -2,8 +2,7 @@ import { Firestore } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
 import config from '@/lib/config';
 import { PlayAnalysisCore } from '@/lib/play-analysis-extractor';
-import { PlayAnalysisSession } from '@/types';
-import { UserInfo } from '@/types';
+import { PlayAnalysisSession , UserInfo } from '@/types';
 
 /**
  * Google Cloud Platform 기반 데이터 저장 시스템

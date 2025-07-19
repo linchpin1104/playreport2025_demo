@@ -1,5 +1,4 @@
 import { PlayAnalysisSession, PlayEvaluationResult, AnalysisReport, IntegratedAnalysisResult } from '@/types';
-import config from './config';
 import { Logger } from './services/logger';
 
 const logger = new Logger('PlayDataStorage');
@@ -9,10 +8,10 @@ const logger = new Logger('PlayDataStorage');
  * 로컬 파일시스템과 메모리 기반 데이터 저장소
  */
 export class PlayDataStorage {
-  private sessions: Map<string, PlayAnalysisSession> = new Map();
-  private evaluations: Map<string, PlayEvaluationResult> = new Map();
-  private reports: Map<string, AnalysisReport> = new Map();
-  private integratedAnalysis: Map<string, IntegratedAnalysisResult> = new Map();
+  private readonly sessions: Map<string, PlayAnalysisSession> = new Map();
+  private readonly evaluations: Map<string, PlayEvaluationResult> = new Map();
+  private readonly reports: Map<string, AnalysisReport> = new Map();
+  private readonly integratedAnalysis: Map<string, IntegratedAnalysisResult> = new Map();
 
   constructor() {
     logger.info('PlayDataStorage initialized');

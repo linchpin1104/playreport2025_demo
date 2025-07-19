@@ -1,3 +1,17 @@
+import { Logger } from './services/logger';
+import { 
+  SpeechAnalysisResult, 
+  LanguageInteractionResult,
+  LanguageMetrics,
+  DetailedLanguageMetrics,
+  SpeechPattern,
+  VocabularyUsage,
+  ConversationFlow,
+  LanguageComplexity
+} from '../types';
+
+const logger = new Logger('LanguageInteractionAnalyzer');
+
 /**
  * 언어 상호작용 분석 모듈
  * 발화 통계, 대화 패턴, 키워드 분석
@@ -91,15 +105,15 @@ export class LanguageInteractionAnalyzer {
    */
   async analyzeLanguageInteraction(transcript: any[]): Promise<LanguageInteractionResult> {
     try {
-      console.log('🔍 언어 상호작용 분석 시작');
-      console.log('📊 입력 데이터:', { transcriptLength: transcript?.length || 0 });
+      logger.info('🔍 언어 상호작용 분석 시작');
+      logger.info('📊 입력 데이터:', { transcriptLength: transcript?.length ?? 0 });
 
       // Google Cloud Speech-to-Text API 형식을 표준 형식으로 변환
       const processedTranscript = this.processTranscriptData(transcript);
-      console.log('✅ 변환된 transcript:', { processedLength: processedTranscript.length });
+      logger.info('✅ 변환된 transcript:', { processedLength: processedTranscript.length });
 
       if (!processedTranscript || processedTranscript.length === 0) {
-        console.log('⚠️ 빈 transcript 데이터 - 기본값 반환');
+        logger.info('⚠️ 빈 transcript 데이터 - 기본값 반환');
         return this.getDefaultResult();
       }
 
@@ -127,7 +141,7 @@ export class LanguageInteractionAnalyzer {
         complexity
       );
 
-      console.log('✅ 언어 상호작용 분석 완료');
+      logger.info('✅ 언어 상호작용 분석 완료');
       return {
         speakerStats,
         utteranceClassification,
@@ -137,7 +151,7 @@ export class LanguageInteractionAnalyzer {
         qualityScore
       };
     } catch (error) {
-      console.error('❌ 언어 상호작용 분석 오류:', error);
+      logger.error('❌ 언어 상호작용 분석 오류:', error);
       return this.getDefaultResult();
     }
   }
@@ -170,7 +184,7 @@ export class LanguageInteractionAnalyzer {
           const speaker = `speaker_${(speakerIndex % 2) + 1}`;
           
           // 시간 정보 추정
-          const startTime = entry.startTime || 0;
+          const startTime = entry.startTime ?? 0;
           const endTime = entry.endTime || startTime + 1;
           
           processedEntries.push({
@@ -178,7 +192,7 @@ export class LanguageInteractionAnalyzer {
             speaker,
             startTime,
             endTime,
-            confidence: bestAlternative.confidence || 0
+            confidence: bestAlternative.confidence ?? 0
           });
           
           speakerIndex++;
@@ -188,18 +202,18 @@ export class LanguageInteractionAnalyzer {
           processedEntries.push({
             text: entry.text.trim(),
             speaker: entry.speaker,
-            startTime: entry.startTime || 0,
+            startTime: entry.startTime ?? 0,
             endTime: entry.endTime || 1,
-            confidence: entry.confidence || 0
+            confidence: entry.confidence ?? 0
           });
         }
       } catch (entryError) {
-        console.warn('⚠️ transcript 항목 처리 중 오류:', entryError);
+        logger.warn('⚠️ transcript 항목 처리 중 오류:', entryError);
         continue;
       }
     }
     
-    console.log(`📊 변환 완료: ${rawTranscript.length} → ${processedEntries.length}개 항목`);
+    logger.info(`📊 변환 완료: ${rawTranscript.length} → ${processedEntries.length}개 항목`);
     return processedEntries;
   }
 
@@ -292,7 +306,7 @@ export class LanguageInteractionAnalyzer {
     for (let i = 0; i < transcript.length; i++) {
       if (i === 0 || transcript[i].startTime - transcript[i-1].endTime > 3.0) {
         const speaker = transcript[i].speaker;
-        patterns.initiationCount[speaker] = (patterns.initiationCount[speaker] || 0) + 1;
+        patterns.initiationCount[speaker] = (patterns.initiationCount[speaker] ?? 0) + 1;
       }
     }
 
@@ -396,7 +410,7 @@ export class LanguageInteractionAnalyzer {
     // 모든 텍스트에서 단어 추출
     for (const entry of transcript) {
       if (!entry?.text || typeof entry.text !== 'string') {
-        console.warn('⚠️ 키워드 분석 중 잘못된 transcript 항목:', entry);
+        logger.warn('⚠️ 키워드 분석 중 잘못된 transcript 항목:', entry);
         continue;
       }
       
@@ -464,7 +478,7 @@ export class LanguageInteractionAnalyzer {
     // 발화 분류
     for (const entry of transcript) {
       if (!entry?.text || typeof entry.text !== 'string') {
-        console.warn('⚠️ 잘못된 transcript 항목:', entry);
+        logger.warn('⚠️ 잘못된 transcript 항목:', entry);
         continue;
       }
       
@@ -576,7 +590,7 @@ export class LanguageInteractionAnalyzer {
       Math.min(interactionPatterns.turnCount / 20, 1.0) : 0;
 
     // 어휘 다양성 점수
-    const vocabularyScore = keywordAnalysis.vocabularyDiversity || 0;
+    const vocabularyScore = keywordAnalysis.vocabularyDiversity ?? 0;
 
     // 복잡성 점수
     const complexityScore = complexity.overallComplexity;
@@ -610,7 +624,7 @@ export class LanguageInteractionAnalyzer {
       return [];
     }
     // 한글, 영문, 숫자만 추출
-    const words = text.toLowerCase().match(/[가-힣a-z0-9]+/g) || [];
+    const words = text.toLowerCase().match(/[가-힣a-z0-9]+/g) ?? [];
     return words.filter(word => word.length > 0);
   }
 
@@ -620,7 +634,7 @@ export class LanguageInteractionAnalyzer {
   private countFrequencies(words: string[]): Map<string, number> {
     const freq = new Map<string, number>();
     for (const word of words) {
-      freq.set(word, (freq.get(word) || 0) + 1);
+      freq.set(word, (freq.get(word) ?? 0) + 1);
     }
     return freq;
   }

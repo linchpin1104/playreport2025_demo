@@ -201,7 +201,15 @@ export interface DevelopmentMetric {
 export interface ChartData {
   type: 'line' | 'bar' | 'pie' | 'timeline' | 'heatmap' | 'radar';
   title: string;
-  data: any[];
+  data: Array<{
+    label?: string;
+    value: number;
+    time?: number;
+    category?: string;
+    x?: number | string;
+    y?: number | string;
+    [key: string]: string | number | undefined;
+  }>;
   xAxis?: string;
   yAxis?: string;
   categories?: string[];
@@ -277,7 +285,7 @@ export interface PlayAnalysisSession {
   tags: string[];
   
   // Optional extended analysis data
-  voiceAnalysis?: any;
+  voiceAnalysis?: unknown;
   evaluation?: PlayEvaluationResult;
   integratedAnalysis?: IntegratedAnalysisResult;
 }

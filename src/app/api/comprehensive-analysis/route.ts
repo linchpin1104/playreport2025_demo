@@ -4,6 +4,9 @@ import config from '@/lib/config';
 import { PlayAnalysisExtractor } from '@/lib/play-analysis-extractor';
 import { PlayDataStorage } from '@/lib/play-data-storage';
 import { PlayEvaluationSystem } from '@/lib/play-evaluation-system';
+import { Logger } from '@/lib/services/logger';
+
+const logger = new Logger('ComprehensiveAnalysisAPI');
 
 /**
  * 통합 종합 분석 API
@@ -69,10 +72,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json() as ComprehensiveAnalysisRequest;
     sessionId = body.sessionId || uuidv4();
     
-    console.log(`🚀 Starting comprehensive analysis for session: ${sessionId}`);
+    logger.info(`🚀 Starting comprehensive analysis for session: ${sessionId}`);
     
     const storage = new PlayDataStorage();
-    const extractor = new PlayAnalysisExtractor();
     const evaluationSystem = new PlayEvaluationSystem();
     
     // 분석 단계 초기화
@@ -100,15 +102,15 @@ export async function POST(request: NextRequest) {
     let sessionData = await storage.getSessionData(sessionId);
     if (!sessionData) {
       // 세션이 없는 경우 새로 생성 (하지만 이 경우는 거의 없어야 함)
-      console.log(`⚠️ Session not found, this should not happen for: ${sessionId}`);
-      console.log(`🔍 Attempting to retrieve from GCP storage...`);
+      logger.warn(`⚠️ Session not found, this should not happen for: ${sessionId}`);
+      logger.info(`🔍 Attempting to retrieve from GCP storage...`);
       
       // GCP에서 직접 조회 시도
       const gcpStorage = new (await import('@/lib/gcp-data-storage')).GCPDataStorage();
       const gcpSession = await gcpStorage.getSession(sessionId);
       
       if (gcpSession) {
-        console.log(`✅ Found session in GCP: ${sessionId}`);
+        logger.info(`✅ Found session in GCP: ${sessionId}`);
         // 타입 호환성을 위해 필요한 속성 추가
         sessionData = {
           ...gcpSession,
@@ -122,11 +124,11 @@ export async function POST(request: NextRequest) {
           }
         };
       } else {
-        console.log(`❌ Session not found in GCP either: ${sessionId}`);
+        logger.error(`❌ Session not found in GCP either: ${sessionId}`);
         throw new Error(`Session ${sessionId} not found in any storage`);
       }
     } else {
-      console.log(`📋 Using existing session: ${sessionId}`);
+      logger.info(`📋 Using existing session: ${sessionId}`);
     }
 
     // sessionData null 체크 추가
@@ -150,7 +152,7 @@ export async function POST(request: NextRequest) {
       // 기존 분석 결과가 있는지 확인
       const existingCore = await storage.getPlayCore(sessionId);
       if (existingCore?.rawData) {
-        console.log('🔍 Found existing analysis results, using cached data');
+        logger.info('🔍 Found existing analysis results, using cached data');
         videoAnalysisResult = {
           success: true,
           analysisResults: existingCore.rawData,
@@ -163,7 +165,7 @@ export async function POST(request: NextRequest) {
         };
       } else {
         // 새로운 분석 수행
-        console.log('🎬 Performing new video analysis...');
+        logger.info('🎬 Performing new video analysis...');
         
         // API URL을 동적으로 감지 (서버 사이드에서 실행되므로 호스트와 포트를 정확히 감지)
         const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
@@ -181,9 +183,9 @@ export async function POST(request: NextRequest) {
           })
         });
         
-        console.log(`📡 Video analysis API response status: ${videoAnalysisResponse.status}`);
-        console.log(`📡 Calling URL: ${apiUrl}/api/analyze`);
-        console.log(`📡 Request body:`, { 
+        logger.info(`📡 Video analysis API response status: ${videoAnalysisResponse.status}`);
+        logger.info(`📡 Calling URL: ${apiUrl}/api/analyze`);
+        logger.info(`📡 Request body:`, { 
           sessionId,
           gsUri: sessionData.paths.rawDataPath || `gs://${config.googleCloud.storageBucket}/${sessionData.metadata.fileName}`,
           fileName: sessionData.metadata.fileName
@@ -191,12 +193,12 @@ export async function POST(request: NextRequest) {
         
         if (!videoAnalysisResponse.ok) {
           const errorText = await videoAnalysisResponse.text();
-          console.error(`❌ Video analysis API error: ${videoAnalysisResponse.status} - ${errorText}`);
+          logger.error(`❌ Video analysis API error: ${videoAnalysisResponse.status} - ${errorText}`);
           throw new Error(`Video analysis failed: ${videoAnalysisResponse.statusText}`);
         }
         
         videoAnalysisResult = await videoAnalysisResponse.json();
-        console.log(`✅ Video analysis API success:`, videoAnalysisResult.success ? 'Success' : 'Failed');
+        logger.info(`✅ Video analysis API success:`, videoAnalysisResult.success ? 'Success' : 'Failed');
         
         // 🚨 핵심 수정: API 응답은 받았지만 분석이 실패한 경우 처리
         if (!videoAnalysisResult.success) {
@@ -208,7 +210,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (error) {
-      console.error('⚠️ Video analysis failed:', error);
+      logger.error('⚠️ Video analysis failed:', error);
       await updateStep(storage, sessionId, steps, 'video_analysis', 'error', 0, '비디오 분석 실패', error instanceof Error ? error.message : 'Unknown error');
       throw error;
     }
@@ -315,12 +317,12 @@ export async function POST(request: NextRequest) {
     response.endTime = new Date().toISOString();
     response.totalProgress = 100;
     
-    console.log(`✅ Comprehensive analysis completed for session: ${sessionId}`);
+    logger.info(`✅ Comprehensive analysis completed for session: ${sessionId}`);
     
     return NextResponse.json(response);
     
   } catch (error) {
-    console.error('❌ Comprehensive analysis error:', error);
+    logger.error('❌ Comprehensive analysis error:', error);
     
     // 에러 발생시에도 기본 응답 반환 (sessionId가 정의되지 않은 경우를 대비)
     const errorSessionId = typeof sessionId !== 'undefined' ? sessionId : 'unknown';
@@ -364,21 +366,21 @@ async function updateStep(
     }
   }
   
-  console.log(`📊 Step ${stepId}: ${status} (${progress}%) - ${message}`);
+  logger.info(`📊 Step ${stepId}: ${status} (${progress}%) - ${message}`);
   if (errorMessage) {
-    console.error(`❌ Step ${stepId} error: ${errorMessage}`);
+    logger.error(`❌ Step ${stepId} error: ${errorMessage}`);
   }
 }
 
 // 실제 음성 분석 함수
 async function performRealVoiceAnalysis(voiceExtractionResult: any, videoAnalysisResult: any) {
-  console.log('🎤 Performing real voice analysis...');
+  logger.info('🎤 Performing real voice analysis...');
   
   // 비디오 분석 결과에서 음성 전사 데이터 추출
   const speechData = videoAnalysisResult.analysisResults?.speechTranscription || [];
   
   if (speechData.length === 0) {
-    console.log('⚠️ No speech data found, creating basic analysis');
+    logger.warn('⚠️ No speech data found, creating basic analysis');
     return {
       speakers: [],
       conversationMetrics: {
@@ -453,7 +455,7 @@ async function performRealVoiceAnalysis(voiceExtractionResult: any, videoAnalysi
 
 // 통합 분석 함수
 async function performIntegratedAnalysis(videoAnalysisResult: any, voiceAnalysisResult: any, sessionId: string) {
-  console.log('🔄 Performing integrated analysis for session:', sessionId);
+  logger.info('🔄 Performing integrated analysis for session:', sessionId);
   
   // 실제 통합 분석 로직 구현
   const overallScore = 75 + Math.random() * 20; // 75-95 점
@@ -491,7 +493,7 @@ async function performIntegratedAnalysis(videoAnalysisResult: any, voiceAnalysis
 
 // 종합 리포트 생성 함수
 async function generateComprehensiveReport(sessionId: string, analysisResults: any) {
-  console.log('📋 Generating comprehensive report for session:', sessionId);
+  logger.info('📋 Generating comprehensive report for session:', sessionId);
   
   const { video, voice, integrated, evaluation } = analysisResults;
   
