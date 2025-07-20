@@ -70,7 +70,7 @@ export class UnifiedAnalysisEngine {
   /**
    * 🎯 모든 분석을 한번에 수행하는 통합 메서드
    */
-  async performCompleteAnalysis(input: UnifiedAnalysisInput): Promise<UnifiedAnalysisResult> {
+  performCompleteAnalysis(input: UnifiedAnalysisInput): UnifiedAnalysisResult {
     logger.info(`🚀 Starting unified analysis for session: ${input.sessionId}`);
     
     const startTime = Date.now();
@@ -313,13 +313,13 @@ export class UnifiedAnalysisEngine {
     let confidence = 0.5; // 기본 신뢰도
     
     // 비디오 데이터 품질에 따른 신뢰도
-    if (videoAnalysis.personDetected) confidence += 0.2;
-    if (videoAnalysis.facesDetected > 0) confidence += 0.1;
-    if (videoAnalysis.objectsDetected > 0) confidence += 0.1;
+    if (videoAnalysis.personDetected) { confidence += 0.2; }
+    if (videoAnalysis.facesDetected > 0) { confidence += 0.1; }
+    if (videoAnalysis.objectsDetected > 0) { confidence += 0.1; }
     
     // 음성 데이터 품질에 따른 신뢰도
-    if (audioAnalysis.speakerCount >= 2) confidence += 0.1;
-    if (audioAnalysis.totalWords > 50) confidence += 0.1;
+    if (audioAnalysis.speakerCount >= 2) { confidence += 0.1; }
+    if (audioAnalysis.totalWords > 50) { confidence += 0.1; }
     
     return Math.min(0.95, confidence); // 최대 95%
   }
@@ -330,14 +330,22 @@ export class UnifiedAnalysisEngine {
   private assessDataQuality(videoResults: VideoIntelligenceResults): string {
     let score = 0;
     
-    if (videoResults.personDetection?.length > 0) score += 25;
-    if (videoResults.faceDetection?.length > 0) score += 25;
-    if (videoResults.objectTracking?.length > 0) score += 25;
-    if (videoResults.speechTranscription?.length > 0) score += 25;
+    // Video analysis scoring
+    if (videoResults.objectTracking?.length > 0) { score += 20; }
+    if (videoResults.faceDetection?.length > 0) { score += 15; }
+    if (videoResults.personDetection?.length > 0) { score += 25; }
     
-    if (score >= 75) return 'excellent';
-    if (score >= 50) return 'good';
-    if (score >= 25) return 'fair';
+    // Audio analysis scoring  
+    if (videoResults.speechTranscription?.length > 0) { score += 15; }
+
+    // Integration bonus scoring
+    if (videoResults.personDetection?.length > 0 && videoResults.speechTranscription?.length > 0) { score += 10; }
+    if (videoResults.faceDetection?.length > 0 && videoResults.speechTranscription?.length > 0) { score += 5; }
+    if (videoResults.objectTracking?.length > 5 && videoResults.speechTranscription?.length > 0) { score += 8; }
+
+    if (score >= 90) { return 'excellent'; }
+    if (score >= 70) { return 'good'; }
+    if (score >= 50) { return 'average'; }
     return 'poor';
   }
   
@@ -352,9 +360,9 @@ export class UnifiedAnalysisEngine {
     speechData.forEach((segment: any) => {
       segment.alternatives?.forEach((alt: any) => {
         if (alt.words) {
-          alt.words.forEach((word: any) => {
+          alt.words?.forEach((word: { endTime?: { seconds?: string; nanos?: string } }) => {
             if (word.endTime) {
-              const endTime = parseFloat(word.endTime.seconds || '0') + parseFloat(word.endTime.nanos || '0') / 1e9;
+              const endTime = parseFloat(word.endTime.seconds ?? '0') + parseFloat(word.endTime.nanos ?? '0') / 1e9;
               maxTime = Math.max(maxTime, endTime);
             }
           });

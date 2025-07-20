@@ -16,7 +16,7 @@ import { ConfigManager } from '../services/config-manager';
 import { ErrorHandlingService } from '../services/error-handling-service';
 import { Logger, LoggerFactory } from '../services/logger';
 import { VideoAnalyzer } from '../video-analyzer';
-import { DIContainer, ServiceTokens } from './container';
+import { DIContainer, ServiceTokens, container } from './container';
 
 /**
  * DI 컨테이너 서비스 등록 설정 (PlayDataStorage 제거 - GCPDataStorage로 통일)

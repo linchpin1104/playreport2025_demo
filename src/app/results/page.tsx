@@ -274,7 +274,6 @@ function ResultsPageContent() {
 
       <PlayInteractionDashboard 
         sessionId={sessionId} 
-        sessionData={sessionData || undefined}
       />
     </div>
   );

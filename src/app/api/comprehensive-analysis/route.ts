@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { configManager } from '@/lib/services/config-manager';
-import { GCPDataStorage } from '@/lib/gcp-data-storage';
-import { Logger } from '@/lib/services/logger';
 import { getVideoAnalysisService } from '@/lib/dependency-injection/container-setup';
+import { GCPDataStorage } from '@/lib/gcp-data-storage';
+import { configManager } from '@/lib/services/config-manager';
+import { Logger } from '@/lib/services/logger';
 import { UnifiedAnalysisEngine } from '@/lib/unified-analysis-engine';
 
 const logger = new Logger('ComprehensiveAnalysisAPI');
@@ -78,15 +78,17 @@ async function updateStep(
     step.status = status;
     step.progress = progress;
     step.message = message;
-    if (error) step.error = error;
+    if (error) { step.error = error; }
   }
   
   logger.info(`📊 Step ${stepId}: ${status} (${progress}%) - ${message}`);
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse<ComprehensiveAnalysisResponse>> {
+  // 변수들을 try 블록 외부에서 선언
+  let sessionId = '';
+  let steps: AnalysisStep[] = [];
   const startTime = new Date().toISOString();
-  let sessionId: string;
   
   try {
     const body = await request.json() as ComprehensiveAnalysisRequest;
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
     const unifiedEngine = new UnifiedAnalysisEngine();
     
     // 분석 단계 초기화
-    const steps: AnalysisStep[] = ANALYSIS_STEPS.map(step => ({
+    steps = ANALYSIS_STEPS.map(step => ({
       step: step.id,
       status: 'pending' as const,
       progress: 0,
@@ -119,7 +121,7 @@ export async function POST(request: NextRequest) {
     await updateStep(gcpStorage, sessionId, steps, 'session_init', 'in_progress', 10, '분석 세션을 초기화하고 있습니다...');
     
     // 기존 세션 정보 조회
-    let sessionData = await gcpStorage.getSession(sessionId);
+    const sessionData = await gcpStorage.getSession(sessionId);
     if (!sessionData) {
       throw new Error(`Session ${sessionId}을 찾을 수 없습니다. 영상을 다시 업로드해주세요.`);
     }
@@ -139,7 +141,7 @@ export async function POST(request: NextRequest) {
     try {
       // VideoAnalysisService를 직접 호출
       const videoAnalysisService = getVideoAnalysisService();
-      const gsUri = sessionData.paths.rawDataPath || `gs://${configManager.get('gcp.bucketName')}/${sessionData.metadata.fileName}`;
+      const gsUri = sessionData.paths.rawDataPath ?? `gs://${configManager.get('gcp.bucketName')}/${sessionData.metadata.fileName}`;
       
       const analysisRequest = {
         sessionId,
@@ -200,7 +202,7 @@ export async function POST(request: NextRequest) {
       };
       
       // 원본 데이터를 GCP에 저장
-      const videoIntelligenceResults = analysisResults.analysisResults || analysisResults;
+      const videoIntelligenceResults = analysisResults.analysisResults ?? analysisResults;
       await gcpStorage.saveToCloudStorage(rawDataPaths.combinedRaw, {
         sessionId,
         timestamp: new Date().toISOString(),
@@ -231,7 +233,7 @@ export async function POST(request: NextRequest) {
       // 새로운 UnifiedAnalysisEngine 사용
       const unifiedResult = await unifiedEngine.performCompleteAnalysis({
         sessionId,
-        videoResults: analysisResults.analysisResults || analysisResults,
+        videoResults: analysisResults.analysisResults ?? analysisResults,
         metadata: {
           fileName: sessionData.metadata.fileName,
           fileSize: sessionData.metadata.fileSize
@@ -289,9 +291,10 @@ export async function POST(request: NextRequest) {
       
       // 세션 최종 상태 업데이트
       sessionData.metadata.status = 'comprehensive_analysis_completed';
-      sessionData.paths.reportPath = dashboardPath;
+      // 'reportPath' is not a known property of sessionData.paths type, so set it directly
+      (sessionData.paths as any).reportPath = dashboardPath;
       await gcpStorage.saveSession(sessionData);
-      
+
       await updateStep(gcpStorage, sessionId, steps, 'dashboard_ready', 'completed', 100, '모든 분석 완료! 대시보드에서 결과를 확인할 수 있습니다.');
       response.results!.report = dashboardData;
       
