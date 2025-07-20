@@ -34,46 +34,31 @@ interface ComprehensiveAnalysisResponse {
   totalProgress: number;
 }
 
-// 분석 단계 정의
+// 간소화된 5단계 정의 (comprehensive-analysis와 일치)
 const STEP_INFO = {
   session_init: {
     title: '세션 초기화',
-    description: '분석 세션을 준비하고 초기화합니다',
+    description: '분석 세션을 준비합니다',
     icon: Settings
   },
-  video_analysis: {
-    title: '비디오 분석',
-    description: 'Google Cloud Video Intelligence로 영상을 분석합니다',
+  video_audio_analysis: {
+    title: '비디오+음성 분석',
+    description: '비디오분석과 음성분석을 동시 수행합니다',
     icon: Brain
   },
-  voice_extraction: {
-    title: '음성 추출',
-    description: '영상에서 음성 데이터를 추출합니다',
+  raw_data_storage: {
+    title: '원본 데이터 저장',
+    description: '추출된 원본 데이터를 GCP에 저장합니다',
     icon: AlertCircle
   },
-  voice_analysis: {
-    title: '음성 분석',
-    description: 'Speech-to-Text로 음성을 분석합니다',
-    icon: AlertCircle
-  },
-  integration: {
+  unified_analysis: {
     title: '통합 분석',
-    description: '비디오와 음성 결과를 통합 분석합니다',
+    description: '새로운 통합 분석 엔진으로 모든 분석을 수행합니다',
     icon: Brain
   },
-  evaluation: {
-    title: '종합 평가',
-    description: '놀이 상호작용 품질을 평가합니다',
-    icon: Users
-  },
-  report_generation: {
-    title: '리포트 생성',
-    description: '상세한 분석 리포트를 생성합니다',
-    icon: FileText
-  },
-  finalization: {
-    title: '완료',
-    description: '분석 결과를 저장하고 완료합니다',
+  dashboard_ready: {
+    title: '대시보드 준비',
+    description: '최종 분석 결과를 대시보드에 표시할 수 있도록 준비합니다',
     icon: CheckCircle
   }
 };

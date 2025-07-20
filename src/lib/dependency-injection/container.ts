@@ -259,7 +259,7 @@ export class DIContainer {
   }
 }
 
-// 서비스 토큰 정의
+// 서비스 토큰 정의 (PlayDataStorage 제거 - GCPDataStorage로 통일)
 export const ServiceTokens = {
   // Core Services
   LOGGER: Symbol('Logger'),
@@ -269,7 +269,6 @@ export const ServiceTokens = {
   // Data Services
   VIDEO_ANALYZER: Symbol('VideoAnalyzer'),
   GCP_DATA_STORAGE: Symbol('GCPDataStorage'),
-  PLAY_DATA_STORAGE: Symbol('PlayDataStorage'),
   
   // Analysis Services
   INTEGRATED_ANALYSIS_SYSTEM: Symbol('IntegratedAnalysisSystem'),

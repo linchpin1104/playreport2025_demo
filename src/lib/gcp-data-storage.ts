@@ -903,21 +903,50 @@ export class GCPDataStorage {
   }
 
   /**
-   * Cloud Storage에 JSON 파일 저장
+   * 🎯 원본 분석 데이터를 Cloud Storage에 저장 (공개 메서드)
    */
-  private async saveToCloudStorage(fileName: string, data: any): Promise<void> {
+  async saveToCloudStorage(fileName: string, data: any): Promise<void> {
     try {
       const bucket = this.storage.bucket(this.bucketName);
       const file = bucket.file(`data/${fileName}`);
       
+      console.log(`💾 Saving data to Cloud Storage: ${fileName}`);
+      
       await file.save(JSON.stringify(data, null, 2), {
         metadata: {
           contentType: 'application/json',
+          metadata: {
+            savedAt: new Date().toISOString(),
+            dataType: 'analysis-data'
+          }
         },
       });
+      
+      console.log(`✅ Data saved successfully: gs://${this.bucketName}/data/${fileName}`);
     } catch (error) {
       console.error(`❌ Error saving to Cloud Storage: ${fileName}`, error);
-      // Cloud Storage 저장 실패는 치명적 오류로 처리하지 않음
+      throw error; // 원본 데이터 저장은 중요하므로 에러를 던짐
+    }
+  }
+
+  /**
+   * 🔍 Cloud Storage에서 JSON 파일 읽기 (공개 메서드)
+   */
+  async loadFromCloudStorage(fileName: string): Promise<any | null> {
+    try {
+      const bucket = this.storage.bucket(this.bucketName);
+      const file = bucket.file(`data/${fileName}`);
+      
+      const [exists] = await file.exists();
+      if (!exists) {
+        return null;
+      }
+      
+      const [content] = await file.download();
+      return JSON.parse(content.toString());
+    } catch (error) {
+      console.error(`❌ Error loading from Cloud Storage: ${fileName}`, error);
+      return null;
     }
   }
 

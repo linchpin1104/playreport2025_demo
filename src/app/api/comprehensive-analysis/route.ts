@@ -1,24 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { configManager } from '@/lib/services/config-manager';
-import { PlayAnalysisExtractor } from '@/lib/play-analysis-extractor';
-import { PlayDataStorage } from '@/lib/play-data-storage';
-import { PlayEvaluationSystem } from '@/lib/play-evaluation-system';
+import { GCPDataStorage } from '@/lib/gcp-data-storage';
 import { Logger } from '@/lib/services/logger';
+import { getVideoAnalysisService } from '@/lib/dependency-injection/container-setup';
+import { UnifiedAnalysisEngine } from '@/lib/unified-analysis-engine';
 
 const logger = new Logger('ComprehensiveAnalysisAPI');
 
 /**
- * 통합 종합 분석 API
+ * 🎯 간소화된 통합 분석 API
  * 
- * 전체 워크플로우:
- * 1. 영상 업로드 → 세션 생성
- * 2. 비디오 분석 (Google Cloud Video Intelligence)
- * 3. 음성 추출 및 분석 (Speech-to-Text)
- * 4. 통합 분석 엔진 (비디오 + 음성 결과 통합)
- * 5. 종합 평가 생성
- * 6. 최종 리포트 생성
- * 7. 결과 대시보드 표시
+ * 사용자 요청 로직:
+ * 1. 영상 업로드 (최대 500MB) ✅ 이미 완료됨
+ * 2. 비디오분석/음성분석 동시 수행
+ * 3. 원본 데이터를 GCP에 저장
+ * 4. 통합 분석 수행 (새로운 UnifiedAnalysisEngine 사용)
+ * 5. 대시보드에 결과 표시
  */
 
 interface ComprehensiveAnalysisRequest {
@@ -31,8 +29,7 @@ interface AnalysisStep {
   status: 'pending' | 'in_progress' | 'completed' | 'error';
   progress: number;
   message: string;
-  startTime?: string;
-  endTime?: string;
+  error?: string;
 }
 
 interface ComprehensiveAnalysisResponse {
@@ -41,9 +38,8 @@ interface ComprehensiveAnalysisResponse {
   steps: AnalysisStep[];
   results?: {
     videoAnalysis?: any;
-    voiceAnalysis?: any;
+    rawDataStorage?: any;
     integratedAnalysis?: any;
-    evaluation?: any;
     report?: any;
   };
   startTime: string;
@@ -57,19 +53,36 @@ interface ComprehensiveAnalysisResponse {
   };
 }
 
-// 분석 단계 정의
+// 🎯 사용자 요구사항에 맞는 5단계 정의
 const ANALYSIS_STEPS: Array<{id: string, name: string, description: string}> = [
-  { id: 'session_init', name: '세션 초기화', description: '분석 세션을 준비하고 초기화합니다' },
-  { id: 'video_analysis', name: '비디오 분석', description: 'Google Cloud Video Intelligence로 영상을 분석합니다' },
-  { id: 'voice_extraction', name: '음성 추출', description: '영상에서 음성 데이터를 추출합니다' },
-  { id: 'voice_analysis', name: '음성 분석', description: 'Speech-to-Text로 음성을 분석합니다' },
-  { id: 'integration', name: '통합 분석', description: '비디오와 음성 결과를 통합 분석합니다' },
-  { id: 'evaluation', name: '종합 평가', description: '놀이 상호작용 품질을 평가합니다' },
-  { id: 'report_generation', name: '리포트 생성', description: '상세한 분석 리포트를 생성합니다' },
-  { id: 'finalization', name: '완료', description: '분석 결과를 저장하고 완료합니다' }
+  { id: 'session_init', name: '세션 초기화', description: '분석 세션을 준비합니다' },
+  { id: 'video_audio_analysis', name: '비디오+음성 분석', description: '비디오분석과 음성분석을 동시 수행합니다' },
+  { id: 'raw_data_storage', name: '원본 데이터 저장', description: '추출된 원본 데이터를 GCP에 저장합니다' },
+  { id: 'unified_analysis', name: '통합 분석', description: '새로운 통합 분석 엔진으로 모든 분석을 수행합니다' },
+  { id: 'dashboard_ready', name: '대시보드 준비', description: '최종 분석 결과를 대시보드에 표시할 수 있도록 준비합니다' }
 ];
 
-// ComprehensiveAnalysisResponse 인터페이스
+// 단계 업데이트 헬퍼 함수
+async function updateStep(
+  storage: GCPDataStorage,
+  sessionId: string,
+  steps: AnalysisStep[],
+  stepId: string,
+  status: AnalysisStep['status'],
+  progress: number,
+  message: string,
+  error?: string
+) {
+  const step = steps.find(s => s.step === stepId);
+  if (step) {
+    step.status = status;
+    step.progress = progress;
+    step.message = message;
+    if (error) step.error = error;
+  }
+  
+  logger.info(`📊 Step ${stepId}: ${status} (${progress}%) - ${message}`);
+}
 
 export async function POST(request: NextRequest) {
   const startTime = new Date().toISOString();
@@ -79,10 +92,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json() as ComprehensiveAnalysisRequest;
     sessionId = body.sessionId || uuidv4();
     
-    logger.info(`Session ID: ${sessionId}`);
+    logger.info(`🚀 Starting simplified 5-step analysis for: ${sessionId}`);
     
-    const storage = new PlayDataStorage();
-    const evaluationSystem = new PlayEvaluationSystem();
+    const gcpStorage = new GCPDataStorage();
+    const unifiedEngine = new UnifiedAnalysisEngine();
     
     // 분석 단계 초기화
     const steps: AnalysisStep[] = ANALYSIS_STEPS.map(step => ({
@@ -101,500 +114,215 @@ export async function POST(request: NextRequest) {
       startTime,
       totalProgress: 0
     };
-    
-    // Step 1: 세션 초기화
-    await updateStep(storage, sessionId, steps, 'session_init', 'in_progress', 10, '분석 세션을 초기화하고 있습니다...');
-    
-    // 기존 세션 정보 조회 또는 생성
-    let sessionData = await storage.getSessionData(sessionId);
-    if (!sessionData) {
-      // 세션이 없는 경우 새로 생성 (하지만 이 경우는 거의 없어야 함)
-      logger.warn(`⚠️ Session not found, this should not happen for: ${sessionId}`);
-      logger.info(`🔍 Attempting to retrieve from GCP storage...`);
-      
-      // GCP에서 직접 조회 시도
-      const gcpStorage = new (await import('@/lib/gcp-data-storage')).GCPDataStorage();
-      const gcpSession = await gcpStorage.getSession(sessionId);
-      
-      if (gcpSession) {
-        logger.info(`✅ Session found in GCP: ${sessionId}`);
-        // 타입 호환성을 위해 필요한 속성 추가
-        sessionData = {
-          ...gcpSession,
-          metadata: {
-            ...gcpSession.metadata,
-            status: 'uploaded' as const
-          },
-          paths: {
-            ...gcpSession.paths,
-            rawDataPath: gcpSession.paths.rawDataPath || undefined
-          }
-        };
-      } else {
-        logger.error(`❌ Session not found in GCP either: ${sessionId}`);
-        throw new Error(`Session ${sessionId} not found in any storage`);
-      }
-    } else {
-      logger.info(`✅ Session found: ${sessionId}`);
-    }
 
-    // sessionData null 체크 추가
+    // 🎯 STEP 1: 세션 초기화 
+    await updateStep(gcpStorage, sessionId, steps, 'session_init', 'in_progress', 10, '분석 세션을 초기화하고 있습니다...');
+    
+    // 기존 세션 정보 조회
+    let sessionData = await gcpStorage.getSession(sessionId);
     if (!sessionData) {
-      throw new Error(`Unable to initialize session data for: ${sessionId}`);
+      throw new Error(`Session ${sessionId}을 찾을 수 없습니다. 영상을 다시 업로드해주세요.`);
     }
     
     // 세션 상태 업데이트
     sessionData.metadata.status = 'comprehensive_analysis_started';
     sessionData.metadata.lastUpdated = new Date().toISOString();
-    await storage.saveSessionData(sessionId, sessionData);
+    await gcpStorage.saveSession(sessionData);
     
-    await updateStep(storage, sessionId, steps, 'session_init', 'completed', 100, '세션 초기화 완료');
+    await updateStep(gcpStorage, sessionId, steps, 'session_init', 'completed', 100, '세션 초기화 완료');
+
+    // 🎯 STEP 2: 비디오+음성 분석 (동시 수행)
+    await updateStep(gcpStorage, sessionId, steps, 'video_audio_analysis', 'in_progress', 0, '비디오분석과 음성분석을 동시 수행하고 있습니다...');
     
-    // Step 2: 비디오 분석
-    await updateStep(storage, sessionId, steps, 'video_analysis', 'in_progress', 0, 'Google Cloud Video Intelligence로 영상을 분석하고 있습니다...');
-    
-    let videoAnalysisResult: any;
+    let analysisResults: any;
     
     try {
-      // 기존 분석 결과가 있는지 확인
-      const existingCore = await storage.getPlayCore(sessionId);
-      if (existingCore?.rawData) {
-        logger.info('🔍 Found existing analysis results, using cached data');
-        videoAnalysisResult = {
-          success: true,
-          analysisResults: existingCore.rawData,
-          metadata: {
-            fileName: sessionData.metadata.fileName,
-            sessionId,
-            processingTime: Date.now(),
-            analysisMode: 'cached'
-          }
-        };
-      } else {
-        // 새로운 분석 수행
-        logger.info('🎬 Performing new video analysis...');
-        
-        // API URL을 동적으로 감지 (서버 사이드에서 실행되므로 호스트와 포트를 정확히 감지)
-        const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-        const host = process.env.HOST || 'localhost';
-        const port = process.env.PORT || '3001';
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || `${protocol}://${host}:${port}`;
-        
-        const videoAnalysisResponse = await fetch(`${apiUrl}/api/analyze`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            sessionId,
-            gsUri: sessionData.paths.rawDataPath || `gs://${configManager.get('gcp.bucketName')}/${sessionData.metadata.fileName}`,
-            fileName: sessionData.metadata.fileName
-          })
-        });
-        
-        if (!videoAnalysisResponse.ok) {
-          const errorText = await videoAnalysisResponse.text();
-          logger.error(`❌ Video analysis API error: ${videoAnalysisResponse.status} - ${errorText}`);
-          throw new Error(`Video analysis failed: ${videoAnalysisResponse.statusText}`);
+      // VideoAnalysisService를 직접 호출
+      const videoAnalysisService = getVideoAnalysisService();
+      const gsUri = sessionData.paths.rawDataPath || `gs://${configManager.get('gcp.bucketName')}/${sessionData.metadata.fileName}`;
+      
+      const analysisRequest = {
+        sessionId,
+        gsUri,
+        fileName: sessionData.metadata.fileName,
+        options: {
+          enableVoiceAnalysis: true,
+          enableVideoAnalysis: true,
+          enableTranscription: true,
         }
-        
-        videoAnalysisResult = await videoAnalysisResponse.json();
-        
-        logger.info(`✅ Video analysis API response received`, { 
-          success: videoAnalysisResult?.success ? 'Success' : 'Failed',
-          hasResult: !!videoAnalysisResult
-        });
-        
-        // 안전한 결과 확인 (undefined 체크 포함)
-        if (!videoAnalysisResult || !videoAnalysisResult.success) {
-          throw new Error(
-            videoAnalysisResult.message || 
-            videoAnalysisResult.error || 
-            '영상 분석에 실패했습니다. 영상에 사람이 감지되지 않았거나 분석 조건을 만족하지 않습니다.'
-          );
-        }
+      };
+      
+      const serviceResult = await videoAnalysisService.performCompleteAnalysis(analysisRequest);
+      
+      if (serviceResult.isFailure()) {
+        throw new Error(serviceResult.getError().message || '비디오+음성 분석에 실패했습니다.');
       }
+      
+      analysisResults = serviceResult.getValue();
+      
+      await updateStep(gcpStorage, sessionId, steps, 'video_audio_analysis', 'completed', 100, '비디오+음성 분석 완료');
+      response.results!.videoAnalysis = analysisResults;
+
     } catch (error) {
-      logger.error('⚠️ Video analysis failed:', error as Error);
-      
-      // GCP 권한 문제인지 확인
+      logger.error('❌ Video+Audio analysis failed:', error as Error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const isPermissionError = errorMessage.includes('PERMISSION_DENIED') || 
-                               errorMessage.includes('permission') ||
-                               errorMessage.includes('credentials') ||
-                               errorMessage.includes('authentication');
       
-      if (isPermissionError) {
-        logger.error('❌ GCP permission error detected');
-        
-        await updateStep(storage, sessionId, steps, 'video_analysis', 'error', 0, 
-          'GCP 권한 오류: 비디오 분석 서비스에 접근할 수 없습니다.',
-          'Google Cloud Platform 환경변수 설정이 필요합니다.'
-        );
-        
-        // 에러 응답으로 분석 중단
-        const errorResponse: ComprehensiveAnalysisResponse = {
-          sessionId,
+      await updateStep(gcpStorage, sessionId, steps, 'video_audio_analysis', 'error', 0, '비디오+음성 분석 실패', errorMessage);
+      
+      if (errorMessage.includes('PERMISSION_DENIED') || errorMessage.includes('permission')) {
+        return NextResponse.json({
+          ...response,
           status: 'error',
-          steps,
-          startTime: response.startTime,
-          endTime: new Date().toISOString(),
-          totalProgress: 0,
-          error: 'GCP 권한 오류로 인해 비디오 분석을 수행할 수 없습니다.',
+          error: 'GCP 권한 오류로 인해 분석을 수행할 수 없습니다.',
           details: {
             reason: 'Google Cloud Platform 서비스 계정 권한이 설정되지 않았습니다.',
             requiredActions: [
-              '1. Vercel 대시보드에서 다음 환경변수를 설정하세요:',
-              '   - GOOGLE_CLOUD_PROJECT_ID=your-project-id',
-              '   - FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."',
-              '   - FIREBASE_ADMIN_CLIENT_EMAIL=firebase-adminsdk-xxx@your-project.iam.gserviceaccount.com',
-              '   - GOOGLE_CLOUD_BUCKET=your-storage-bucket',
-              '2. GCP 서비스 계정에 다음 권한을 부여하세요:',
-              '   - Cloud Storage Object Viewer',
-              '   - Cloud Video Intelligence API User', 
-              '   - Firestore User',
-              '3. 환경변수 설정 후 새로운 영상을 업로드하세요.'
+              '1. Vercel 환경변수 설정',
+              '2. GCP 서비스 계정 권한 확인',
+              '3. Video Intelligence API 활성화 확인'
             ],
-            supportLink: '자세한 설정 방법은 VERCEL_ENV_SETUP.md를 참고하세요.'
+            supportLink: 'VERCEL_ENV_SETUP.md를 참고하세요.'
           }
-        };
+        }, { status: 424 });
+      }
+      
+      throw error;
+    }
 
-        return NextResponse.json(errorResponse, { status: 424 }); // Failed Dependency
-        
-      } else {
-        // 다른 종류의 오류
-        await updateStep(storage, sessionId, steps, 'video_analysis', 'error', 0, 
-          '비디오 분석 실패', 
-          errorMessage
-        );
-        
-        throw error; // 기존 에러 처리로 전달
-      }
-    }
+    // 🎯 STEP 3: 원본 데이터 저장 (GCP)
+    await updateStep(gcpStorage, sessionId, steps, 'raw_data_storage', 'in_progress', 0, '추출된 원본 데이터를 GCP에 저장하고 있습니다...');
     
-    await updateStep(storage, sessionId, steps, 'video_analysis', 'completed', 100, '비디오 분석 완료');
-    response.results!.videoAnalysis = videoAnalysisResult;
-    
-    // Step 3: 음성 추출
-    await updateStep(storage, sessionId, steps, 'voice_extraction', 'in_progress', 0, '영상에서 음성 데이터를 추출하고 있습니다...');
-    
-    // 실제 음성 추출은 비디오 분석 결과에서 추출
-    const voiceExtractionResult = {
-      audioPath: `${sessionId}_audio.wav`,
-      segments: videoAnalysisResult.analysisResults?.speechTranscription || [],
-      extractedAt: new Date().toISOString()
-    };
-    
-    await updateStep(storage, sessionId, steps, 'voice_extraction', 'completed', 100, '음성 추출 완료');
-    
-    // Step 4: 음성 분석
-    await updateStep(storage, sessionId, steps, 'voice_analysis', 'in_progress', 0, 'Speech-to-Text로 음성을 분석합니다...');
-    
-    const voiceAnalysisResult = await performRealVoiceAnalysis(voiceExtractionResult, videoAnalysisResult);
-    
-    await updateStep(storage, sessionId, steps, 'voice_analysis', 'completed', 100, '음성 분석 완료');
-    response.results!.voiceAnalysis = voiceAnalysisResult;
-    
-    // 음성 분석 데이터 저장
-    await storage.saveVoiceAnalysisData(sessionId, voiceAnalysisResult);
-    
-    // Step 5: 통합 분석
-    await updateStep(storage, sessionId, steps, 'integration', 'in_progress', 0, '비디오와 음성 결과를 통합 분석하고 있습니다...');
-    
-    const integratedAnalysisResult = await performIntegratedAnalysis(
-      videoAnalysisResult,
-      voiceAnalysisResult,
-      sessionId
-    );
-    
-    await updateStep(storage, sessionId, steps, 'integration', 'completed', 100, '통합 분석 완료');
-    response.results!.integratedAnalysis = integratedAnalysisResult;
-    
-    // 통합 분석 결과 저장
-    await storage.saveIntegratedAnalysisData(sessionId, integratedAnalysisResult);
-    
-    // Step 6: 종합 평가
-    await updateStep(storage, sessionId, steps, 'evaluation', 'in_progress', 0, '놀이 상호작용 평가를 수행하고 있습니다...');
-    
-    const evaluationResult = await evaluationSystem.evaluatePlaySession(
-      integratedAnalysisResult as any
-    );
-    
-    await updateStep(storage, sessionId, steps, 'evaluation', 'completed', 100, '종합 평가 완료');
-    response.results!.evaluation = evaluationResult;
-    
-    // 평가 결과 저장
-    await storage.saveEvaluationData(sessionId, evaluationResult as any);
-    
-    // Step 7: 리포트 생성
-    await updateStep(storage, sessionId, steps, 'report_generation', 'in_progress', 0, '최종 분석 리포트를 생성하고 있습니다...');
-    
-    const reportResult = await generateComprehensiveReport(
-      sessionId,
-      {
-        video: videoAnalysisResult,
-        voice: voiceAnalysisResult,
-        integrated: integratedAnalysisResult,
-        evaluation: evaluationResult
-      }
-    );
-    
-    await updateStep(storage, sessionId, steps, 'report_generation', 'completed', 100, '리포트 생성 완료');
-    response.results!.report = reportResult;
-    
-    // 리포트 저장
-    await storage.saveReportData(sessionId, reportResult as any);
-    
-    // Step 8: 완료 처리
-    await updateStep(storage, sessionId, steps, 'finalization', 'in_progress', 0, '분석 결과를 저장하고 마무리하고 있습니다...');
-    
-    // 세션 상태 최종 업데이트
-    const finalSessionData = await storage.getSessionData(sessionId);
-    if (finalSessionData) {
-      finalSessionData.metadata.status = 'comprehensive_analysis_completed';
-      finalSessionData.metadata.lastUpdated = new Date().toISOString();
-      finalSessionData.analysis.overallScore = evaluationResult.scores?.overall || integratedAnalysisResult.overallScore;
-      finalSessionData.analysis.keyInsights = reportResult.keyInsights || integratedAnalysisResult.keyFindings.slice(0, 3);
+    try {
+      const rawDataPaths = {
+        videoAnalysisRaw: `analysis/${sessionId}/video_analysis_raw.json`,
+        audioAnalysisRaw: `analysis/${sessionId}/audio_analysis_raw.json`,
+        combinedRaw: `analysis/${sessionId}/combined_analysis_raw.json`
+      };
       
-      // 통합 분석 정보 업데이트
-      finalSessionData.integratedAnalysis = {
-        overallScore: (integratedAnalysisResult as any).overallScore,
-        interactionQuality: (integratedAnalysisResult as any).interactionQuality,
-        completedAt: (integratedAnalysisResult as any).completedAt,
-        processingSteps: (integratedAnalysisResult as any).processingSteps
-      } as any;
+      // 원본 데이터를 GCP에 저장
+      const videoIntelligenceResults = analysisResults.analysisResults || analysisResults;
+      await gcpStorage.saveToCloudStorage(rawDataPaths.combinedRaw, {
+        sessionId,
+        timestamp: new Date().toISOString(),
+        rawVideoResults: videoIntelligenceResults,
+        metadata: sessionData.metadata
+      });
       
-      await storage.saveSessionData(sessionId, finalSessionData);
+      // 세션에 원본 데이터 경로 업데이트
+      sessionData.paths = {
+        ...sessionData.paths,
+        analysisDataUrl: rawDataPaths.combinedRaw
+      };
+      await gcpStorage.saveSession(sessionData);
+      
+      await updateStep(gcpStorage, sessionId, steps, 'raw_data_storage', 'completed', 100, '원본 데이터 GCP 저장 완료');
+      response.results!.rawDataStorage = rawDataPaths;
+      
+    } catch (error) {
+      logger.error('❌ Raw data storage failed:', error as Error);
+      await updateStep(gcpStorage, sessionId, steps, 'raw_data_storage', 'error', 0, '원본 데이터 저장 실패', error instanceof Error ? error.message : String(error));
+      throw error;
     }
+
+    // 🎯 STEP 4: 통합 분석 수행 (새로운 UnifiedAnalysisEngine 사용)
+    await updateStep(gcpStorage, sessionId, steps, 'unified_analysis', 'in_progress', 0, '통합 분석 엔진으로 모든 분석을 수행하고 있습니다...');
     
-    await updateStep(storage, sessionId, steps, 'finalization', 'completed', 100, '모든 분석이 완료되었습니다!');
+    try {
+      // 새로운 UnifiedAnalysisEngine 사용
+      const unifiedResult = await unifiedEngine.performCompleteAnalysis({
+        sessionId,
+        videoResults: analysisResults.analysisResults || analysisResults,
+        metadata: {
+          fileName: sessionData.metadata.fileName,
+          fileSize: sessionData.metadata.fileSize
+        }
+      });
+      
+      // 통합 분석 결과 저장
+      const unifiedAnalysisPath = `analysis/${sessionId}/unified_analysis.json`;
+      await gcpStorage.saveToCloudStorage(unifiedAnalysisPath, unifiedResult);
+      
+      // 세션 업데이트
+      sessionData.paths.integratedAnalysisPath = unifiedAnalysisPath;
+      sessionData.analysis = {
+        ...sessionData.analysis,
+        overallScore: unifiedResult.overallScore,
+        interactionQuality: unifiedResult.interactionQuality,
+        keyInsights: unifiedResult.keyFindings.slice(0, 3),
+        completedAt: new Date().toISOString()
+      };
+      await gcpStorage.saveSession(sessionData);
+      
+      await updateStep(gcpStorage, sessionId, steps, 'unified_analysis', 'completed', 100, '통합 분석 완료');
+      response.results!.integratedAnalysis = unifiedResult;
+      
+    } catch (error) {
+      logger.error('❌ Unified analysis failed:', error as Error);
+      await updateStep(gcpStorage, sessionId, steps, 'unified_analysis', 'error', 0, '통합 분석 실패', error instanceof Error ? error.message : String(error));
+      throw error;
+    }
+
+    // 🎯 STEP 5: 대시보드 준비 완료
+    await updateStep(gcpStorage, sessionId, steps, 'dashboard_ready', 'in_progress', 0, '대시보드 표시를 위한 최종 준비를 하고 있습니다...');
     
-    // 최종 응답 준비
+    try {
+      const unifiedResult = response.results!.integratedAnalysis;
+      
+      // 대시보드용 요약 데이터 생성
+      const dashboardData = {
+        sessionId,
+        overallScore: unifiedResult.overallScore,
+        summary: {
+          videoAnalysis: unifiedResult.videoAnalysis,
+          audioAnalysis: unifiedResult.audioAnalysis,
+          integratedAnalysis: unifiedResult.integratedAnalysis,
+          keyFindings: unifiedResult.keyFindings,
+          recommendations: unifiedResult.recommendations,
+          completedAt: new Date().toISOString()
+        },
+        metadata: unifiedResult.analysisMetadata
+      };
+      
+      // 대시보드 데이터 저장
+      const dashboardPath = `analysis/${sessionId}/dashboard_data.json`;
+      await gcpStorage.saveToCloudStorage(dashboardPath, dashboardData);
+      
+      // 세션 최종 상태 업데이트
+      sessionData.metadata.status = 'comprehensive_analysis_completed';
+      sessionData.paths.reportPath = dashboardPath;
+      await gcpStorage.saveSession(sessionData);
+      
+      await updateStep(gcpStorage, sessionId, steps, 'dashboard_ready', 'completed', 100, '모든 분석 완료! 대시보드에서 결과를 확인할 수 있습니다.');
+      response.results!.report = dashboardData;
+      
+    } catch (error) {
+      logger.error('❌ Dashboard preparation failed:', error as Error);
+      await updateStep(gcpStorage, sessionId, steps, 'dashboard_ready', 'error', 0, '대시보드 준비 실패', error instanceof Error ? error.message : String(error));
+      throw error;
+    }
+
+    // ✅ 최종 응답 준비
     response.status = 'completed';
     response.endTime = new Date().toISOString();
     response.totalProgress = 100;
     
-    logger.info(`✅ Comprehensive analysis completed for session: ${sessionId}`);
+    logger.info(`🎉 Simplified 5-step analysis completed for: ${sessionId}`);
     
     return NextResponse.json(response);
     
   } catch (error) {
-    logger.error('❌ Comprehensive analysis error:', error as Error);
-    
-    // sessionId가 정의되지 않은 경우를 대비한 안전한 처리
-    let errorSessionId: string;
-    try {
-      errorSessionId = sessionId;
-    } catch {
-      errorSessionId = 'unknown';
-    }
+    logger.error(`❌ Comprehensive analysis failed for ${sessionId}:`, error as Error);
     
     return NextResponse.json({
-      sessionId: errorSessionId,
-      status: 'error',
-      steps: ANALYSIS_STEPS.map(step => ({
-        step: step.id,
-        status: 'error' as const,
-        progress: 0,
-        message: `${step.description} - 오류 발생`
-      })),
-      error: error instanceof Error ? error.message : 'Unknown error',
+      sessionId,
+      status: 'error' as const,
+      steps: steps || [],
       startTime,
       endTime: new Date().toISOString(),
-      totalProgress: 0
-    } as ComprehensiveAnalysisResponse, { status: 500 });
+      totalProgress: 0,
+      error: error instanceof Error ? error.message : '분석 중 예기치 못한 오류가 발생했습니다.'
+    }, { status: 500 });
   }
-}
-
-// 단계 업데이트 함수
-async function updateStep(
-  storage: PlayDataStorage,
-  sessionId: string,
-  steps: AnalysisStep[],
-  stepId: string,
-  status: 'pending' | 'in_progress' | 'completed' | 'error',
-  progress: number,
-  message: string,
-  errorMessage?: string
-) {
-  const step = steps.find(s => s.step === stepId);
-  if (step) {
-    step.status = status;
-    step.progress = progress;
-    step.message = message;
-    if (status === 'in_progress') {
-      step.startTime = new Date().toISOString();
-    } else if (status === 'completed' || status === 'error') {
-      step.endTime = new Date().toISOString();
-    }
-  }
-  
-  logger.info(`${status} (${progress}%) - ${message}`);
-  if (errorMessage) {
-    logger.error(`❌ Step ${stepId} error: ${errorMessage}`);
-  }
-}
-
-// 실제 음성 분석 함수
-async function performRealVoiceAnalysis(voiceExtractionResult: any, videoAnalysisResult: any) {
-  logger.info('🎤 Performing real voice analysis...');
-  
-  // 비디오 분석 결과에서 음성 전사 데이터 추출
-  const speechData = videoAnalysisResult.analysisResults?.speechTranscription || [];
-  
-  if (speechData.length === 0) {
-    logger.warn('⚠️ No speech data found, creating basic analysis');
-    return {
-      speakers: [],
-      conversationMetrics: {
-        turnTaking: { balance: 0.5, appropriateness: 0.7 },
-        responseTime: { average: 2.0, appropriateness: 0.6 },
-        interactionQuality: 0.5
-      },
-      emotionAnalysis: {
-        timeline: [],
-        overallMood: 'neutral',
-        emotionalSynchrony: 0.5
-      },
-      metadata: {
-        totalWords: 0,
-        speakerCount: 0,
-        analysisVersion: '2.0.0'
-      }
-    };
-  }
-  
-  // 간단한 음성 분석 수행
-  const speakers = new Set();
-  let totalWords = 0;
-  
-  speechData.forEach((transcript: any) => {
-    transcript.alternatives?.forEach((alt: any) => {
-      if (alt.words) {
-        totalWords += alt.words.length;
-        alt.words.forEach((word: any) => {
-          if (word.speakerTag) {
-            speakers.add(word.speakerTag);
-          }
-        });
-      }
-    });
-  });
-  
-  return {
-    speakers: Array.from(speakers).map((speakerId, index) => ({
-      speakerId,
-      demographic: { 
-        age: index === 0 ? 'adult' : 'child', 
-        gender: 'unknown' 
-      },
-      emotionalProfile: { 
-        dominant: index === 0 ? 'supportive' : 'excited', 
-        engagement: 0.7 + Math.random() * 0.2 
-      },
-      speechCharacteristics: { 
-        pitch: index === 0 ? 'medium' : 'high', 
-        tempo: 'normal', 
-        volume: 'moderate' 
-      }
-    })),
-    conversationMetrics: {
-      turnTaking: { balance: 0.6 + Math.random() * 0.3, appropriateness: 0.8 + Math.random() * 0.15 },
-      responseTime: { average: 1.0 + Math.random() * 0.5, appropriateness: 0.85 + Math.random() * 0.1 },
-      interactionQuality: 0.75 + Math.random() * 0.2
-    },
-    emotionAnalysis: {
-      timeline: [],
-      overallMood: 'positive',
-      emotionalSynchrony: 0.7 + Math.random() * 0.2
-    },
-    metadata: {
-      totalWords,
-      speakerCount: speakers.size,
-      analysisVersion: '2.0.0'
-    }
-  };
-}
-
-// 통합 분석 함수
-async function performIntegratedAnalysis(videoAnalysisResult: any, voiceAnalysisResult: any, sessionId: string) {
-  logger.info('🔄 Performing integrated analysis for session', { sessionId });
-  
-  // 실제 통합 분석 로직 구현
-  const overallScore = 75 + Math.random() * 20; // 75-95 점
-  const interactionQuality = 70 + Math.random() * 25; // 70-95 점
-  
-  return {
-    sessionId,
-    overallScore,
-    interactionQuality,
-    physicalInteraction: {
-      proximityScore: 70 + Math.random() * 25,
-      movementSynchrony: 65 + Math.random() * 30,
-      spaceUtilization: 75 + Math.random() * 20
-    },
-    emotionalInteraction: {
-      emotionalSynchrony: voiceAnalysisResult.emotionAnalysis?.emotionalSynchrony || 0.75,
-      positiveInteractionRatio: 0.8 + Math.random() * 0.15,
-      engagementLevel: voiceAnalysisResult.conversationMetrics?.interactionQuality || 0.8
-    },
-    languageInteraction: {
-      conversationBalance: voiceAnalysisResult.conversationMetrics?.turnTaking?.balance || 0.6,
-      responseAppropriateness: voiceAnalysisResult.conversationMetrics?.responseTime?.appropriateness || 0.8,
-      vocabularyDiversity: 70 + Math.random() * 25
-    },
-    keyFindings: [
-      '부모-자녀 상호작용 품질이 양호합니다',
-      '언어적 소통이 활발하게 이루어지고 있습니다',
-      '감정적 연결과 동조성이 관찰됩니다',
-      '적절한 놀이 환경이 조성되어 있습니다'
-    ],
-    completedAt: new Date().toISOString(),
-    processingSteps: 4
-  };
-}
-
-// 종합 리포트 생성 함수
-async function generateComprehensiveReport(sessionId: string, analysisResults: any) {
-  logger.info('Generating comprehensive report for session:', sessionId);
-  
-  const { video, voice, integrated, evaluation } = analysisResults;
-  
-  return {
-    sessionId,
-    executiveSummary: `세션 ${sessionId}의 놀이 상호작용 분석이 완료되었습니다. 전체 점수는 ${integrated.overallScore.toFixed(1)}점으로 ${evaluation.grade} 등급입니다.`,
-    keyInsights: [
-      '부모-자녀 간 활발한 상호작용이 관찰되었습니다',
-      '언어적 소통의 질이 우수합니다',
-      '감정적 동조성이 양호한 수준입니다',
-      '전반적으로 건강한 놀이 패턴을 보입니다'
-    ],
-    detailedAnalysis: {
-      videoAnalysis: {
-        duration: video.metadata?.duration || 300,
-        objectsDetected: video.analysisResults?.objectTracking?.length || 0,
-        facesDetected: video.analysisResults?.faceDetection?.length || 0,
-        speechSegments: video.analysisResults?.speechTranscription?.length || 0
-      },
-      voiceAnalysis: {
-        speakerCount: voice.metadata?.speakerCount || 2,
-        totalWords: voice.metadata?.totalWords || 0,
-        interactionQuality: voice.conversationMetrics?.interactionQuality || 0.8,
-        emotionalSynchrony: voice.emotionAnalysis?.emotionalSynchrony || 0.75
-      },
-      integratedScores: {
-        overall: integrated.overallScore,
-        physical: integrated.physicalInteraction?.proximityScore || 75,
-        emotional: integrated.emotionalInteraction?.engagementLevel * 100 || 80,
-        language: integrated.languageInteraction?.vocabularyDiversity || 75
-      }
-    },
-    recommendations: evaluation.insights?.recommendations || [
-      '현재의 긍정적인 상호작용 패턴을 유지하세요',
-      '다양한 놀이 활동을 시도해보세요',
-      '자녀의 반응에 더 민감하게 대응해보세요'
-    ],
-    generatedAt: new Date().toISOString(),
-    version: '2.0.0'
-  };
 }
 
 export async function GET() {

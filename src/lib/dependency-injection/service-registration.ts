@@ -9,7 +9,6 @@ import { IntegratedAnalysisSystem } from '../integrated-analysis-system';
 import { LanguageInteractionAnalyzer } from '../language-interaction-analyzer';
 import { PhysicalInteractionAnalyzer } from '../physical-interaction-analyzer';
 import { PlayAnalysisExtractor } from '../play-analysis-extractor';
-import { PlayDataStorage } from '../play-data-storage';
 import { PlayPatternAnalyzer } from '../play-pattern-analyzer';
 import { APIOptimizer } from '../services/api-optimizer';
 import { CacheManager } from '../services/cache';
@@ -20,7 +19,7 @@ import { VideoAnalyzer } from '../video-analyzer';
 import { DIContainer, ServiceTokens } from './container';
 
 /**
- * DI 컨테이너 서비스 등록 설정
+ * DI 컨테이너 서비스 등록 설정 (PlayDataStorage 제거 - GCPDataStorage로 통일)
  */
 export function configureServices(container: DIContainer): void {
   // Core Services
@@ -118,44 +117,36 @@ export function configureServices(container: DIContainer): void {
     'singleton'
   );
 
-  // Data Services
+  container.registerSingleton(
+    ServiceTokens.ERROR_HANDLING_SERVICE,
+    ErrorHandlingService
+  );
+
+  // VideoAnalyzer - ConfigManager 의존성 추가
   container.registerFactory(
     ServiceTokens.VIDEO_ANALYZER,
     () => {
-      // VideoAnalyzer는 리팩토링 후 의존성 주입을 받도록 수정 예정
-      const client = container.resolve(ServiceTokens.VIDEO_INTELLIGENCE_CLIENT);
-      if (client.isFailure()) {
-        throw new Error('Failed to resolve VideoIntelligenceClient');
+      const configManager = container.resolve<ConfigManager>(ServiceTokens.CONFIG_MANAGER);
+      if (configManager.isFailure()) {
+        throw new Error('Failed to resolve ConfigManager');
       }
       
-      // 현재는 기존 방식으로 생성하되, 추후 리팩토링 예정
+      // VideoAnalyzer는 내부적으로 ConfigManager.getInstance()를 사용하므로
+      // 여기서는 단순히 생성만 해주면 됨
       return new VideoAnalyzer();
     },
-    [ServiceTokens.VIDEO_INTELLIGENCE_CLIENT],
+    [ServiceTokens.CONFIG_MANAGER],
     'singleton'
   );
 
+  // Data Storage - GCPDataStorage만 사용 (PlayDataStorage 제거)
   container.registerFactory(
     ServiceTokens.GCP_DATA_STORAGE,
     () => {
-      // GCPDataStorage는 리팩토링 후 의존성 주입을 받도록 수정 예정
-      const firestore = container.resolve(ServiceTokens.FIRESTORE);
-      const storage = container.resolve(ServiceTokens.GOOGLE_CLOUD_STORAGE);
-      
-      if (firestore.isFailure() || storage.isFailure()) {
-        throw new Error('Failed to resolve GCP dependencies');
-      }
-      
-      // 현재는 기존 방식으로 생성하되, 추후 리팩토링 예정
       return new GCPDataStorage();
     },
-    [ServiceTokens.FIRESTORE, ServiceTokens.GOOGLE_CLOUD_STORAGE],
+    [],
     'singleton'
-  );
-
-  container.registerSingleton(
-    ServiceTokens.PLAY_DATA_STORAGE,
-    PlayDataStorage
   );
 
   // Analysis Services
@@ -179,103 +170,36 @@ export function configureServices(container: DIContainer): void {
     PlayPatternAnalyzer
   );
 
-  container.registerFactory(
-    ServiceTokens.INTEGRATED_ANALYSIS_SYSTEM,
-    () => {
-      // IntegratedAnalysisSystem은 리팩토링 후 의존성 주입을 받도록 수정 예정
-      const physicalAnalyzer = container.resolve(ServiceTokens.PHYSICAL_INTERACTION_ANALYZER);
-      const languageAnalyzer = container.resolve(ServiceTokens.LANGUAGE_INTERACTION_ANALYZER);
-      const emotionalAnalyzer = container.resolve(ServiceTokens.EMOTIONAL_INTERACTION_ANALYZER);
-      const playPatternAnalyzer = container.resolve(ServiceTokens.PLAY_PATTERN_ANALYZER);
-      
-      if (physicalAnalyzer.isFailure() || languageAnalyzer.isFailure() || 
-          emotionalAnalyzer.isFailure() || playPatternAnalyzer.isFailure()) {
-        throw new Error('Failed to resolve analysis dependencies');
-      }
-      
-      // 현재는 기존 방식으로 생성하되, 추후 리팩토링 예정
-      return new IntegratedAnalysisSystem();
-    },
-    [
-      ServiceTokens.PHYSICAL_INTERACTION_ANALYZER,
-      ServiceTokens.LANGUAGE_INTERACTION_ANALYZER,
-      ServiceTokens.EMOTIONAL_INTERACTION_ANALYZER,
-      ServiceTokens.PLAY_PATTERN_ANALYZER
-    ],
-    'singleton'
-  );
-
-  // Utility Services
   container.registerSingleton(
-    ServiceTokens.SPEAKER_DIARIZATION,
-    AdvancedSpeakerDiarization
+    ServiceTokens.INTEGRATED_ANALYSIS_SYSTEM,
+    IntegratedAnalysisSystem
   );
 
   container.registerSingleton(
     ServiceTokens.PLAY_ANALYSIS_EXTRACTOR,
     PlayAnalysisExtractor
   );
+
+  container.registerSingleton(
+    ServiceTokens.SPEAKER_DIARIZATION,
+    AdvancedSpeakerDiarization
+  );
 }
 
 /**
- * 서비스 레졸브 헬퍼 함수들
+ * 서비스 인스턴스 해결 헬퍼
  */
 export class ServiceResolver {
-  constructor(private readonly container: DIContainer) {}
-
-  getVideoAnalyzer(): VideoAnalyzer {
-    const result = this.container.resolve<VideoAnalyzer>(ServiceTokens.VIDEO_ANALYZER);
+  static resolve<T>(token: symbol): T {
+    const result = container.resolve<T>(token);
     if (result.isFailure()) {
-      throw new Error('Failed to resolve VideoAnalyzer');
+      throw new Error(`Failed to resolve service: ${token.toString()}`);
     }
     return result.getValue();
   }
 
-  getGCPDataStorage(): GCPDataStorage {
-    const result = this.container.resolve<GCPDataStorage>(ServiceTokens.GCP_DATA_STORAGE);
-    if (result.isFailure()) {
-      throw new Error('Failed to resolve GCPDataStorage');
-    }
-    return result.getValue();
-  }
-
-  getIntegratedAnalysisSystem(): IntegratedAnalysisSystem {
-    const result = this.container.resolve<IntegratedAnalysisSystem>(ServiceTokens.INTEGRATED_ANALYSIS_SYSTEM);
-    if (result.isFailure()) {
-      throw new Error('Failed to resolve IntegratedAnalysisSystem');
-    }
-    return result.getValue();
-  }
-
-  getLogger(service: string): Logger {
-    const result = this.container.resolve<Logger>(ServiceTokens.LOGGER);
-    if (result.isFailure()) {
-      throw new Error('Failed to resolve Logger');
-    }
-    return result.getValue();
-  }
-
-  getConfigManager(): ConfigManager {
-    const result = this.container.resolve<ConfigManager>(ServiceTokens.CONFIG_MANAGER);
-    if (result.isFailure()) {
-      throw new Error('Failed to resolve ConfigManager');
-    }
-    return result.getValue();
-  }
-
-  getCacheManager(): CacheManager {
-    const result = this.container.resolve<CacheManager>(ServiceTokens.CACHE_MANAGER);
-    if (result.isFailure()) {
-      throw new Error('Failed to resolve CacheManager');
-    }
-    return result.getValue();
-  }
-
-  getAPIOptimizer(): APIOptimizer {
-    const result = this.container.resolve<APIOptimizer>(ServiceTokens.API_OPTIMIZER);
-    if (result.isFailure()) {
-      throw new Error('Failed to resolve APIOptimizer');
-    }
-    return result.getValue();
+  static tryResolve<T>(token: symbol): T | null {
+    const result = container.resolve<T>(token);
+    return result.isSuccess() ? result.getValue() : null;
   }
 } 
