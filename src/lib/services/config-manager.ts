@@ -72,6 +72,7 @@ export interface ConfigSchema {
 }
 
 export class ConfigManager {
+  private static instance: ConfigManager | null = null;
   private config: ConfigSchema;
   private readonly validators: Map<string, (value: any) => boolean> = new Map();
   private readonly required: Set<string> = new Set();
@@ -85,6 +86,16 @@ export class ConfigManager {
     if (!this.isBuildTime()) {
       this.validateConfig();
     }
+  }
+
+  /**
+   * 싱글톤 인스턴스 반환
+   */
+  public static getInstance(): ConfigManager {
+    if (!ConfigManager.instance) {
+      ConfigManager.instance = new ConfigManager();
+    }
+    return ConfigManager.instance;
   }
 
   /**
@@ -156,7 +167,7 @@ export class ConfigManager {
         projectId: process.env.GOOGLE_CLOUD_PROJECT_ID || '',
         region: process.env.GOOGLE_CLOUD_REGION || 'us-central1',
         keyFile: process.env.GOOGLE_CLOUD_KEY_FILE || '',
-        bucketName: process.env.GOOGLE_CLOUD_BUCKET_NAME || '',
+        bucketName: process.env.GOOGLE_CLOUD_BUCKET || '', // GOOGLE_CLOUD_BUCKET_NAME → GOOGLE_CLOUD_BUCKET 수정
         storageBucket: process.env.GOOGLE_CLOUD_STORAGE_BUCKET || '', // 추가 버킷 설정
         isAvailable: process.env.GOOGLE_CLOUD_PROJECT_ID !== undefined && process.env.GOOGLE_CLOUD_PROJECT_ID.length > 0
       },

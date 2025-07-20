@@ -5,25 +5,13 @@ import React, { useState, useCallback } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-
-interface FileUploadResponse {
-  success: boolean;
-  fileName?: string;
-  gsUri?: string;
-  originalName?: string;
-  fileSize?: number;
-  session?: {
-    sessionId: string;
-    status: string;
-    createdAt: string;
-  };
-  error?: string;
-}
+import { FileUploadResponse, UserInfo } from '@/types';
 
 interface VideoUploadProps {
-  onUploadComplete: (data: FileUploadResponse) => void;
+  onUploadComplete: (result: FileUploadResponse) => void;
   onError: (error: string) => void;
-  maxFileSize?: number;
+  maxFileSize?: number; // MB 단위
+  userInfo: UserInfo; // 사용자 정보 추가
 }
 
 const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm'];
@@ -32,7 +20,8 @@ const allowedExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
 export default function VideoUpload({ 
   onUploadComplete, 
   onError,
-  maxFileSize = 300,
+  maxFileSize = 500, // 기본값 500MB로 증가
+  userInfo, // userInfo prop 추가
 }: VideoUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -40,11 +29,11 @@ export default function VideoUpload({
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) {return '0 Bytes';}
+    if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))  } ${  sizes[i]}`;
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
   const isValidVideoFile = (fileName: string): boolean => {
@@ -90,14 +79,19 @@ export default function VideoUpload({
   }, [maxFileSize, onError]);
 
   const handleUpload = useCallback(async () => {
-    if (!file) {return;}
+    if (!file) return;
 
     setUploading(true);
     setUploadProgress(0);
 
     try {
+      console.log('🚀 업로드 시작:', file.name, `(${Math.round(file.size / 1024 / 1024)}MB)`);
+      
       const formData = new FormData();
       formData.append('video', file);
+      
+      // userInfo를 JSON 문자열로 추가
+      formData.append('userInfo', JSON.stringify(userInfo));
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -105,24 +99,27 @@ export default function VideoUpload({
       });
 
       if (!response.ok) {
-        throw new Error('업로드에 실패했습니다.');
+        const errorData = await response.json();
+        throw new Error(errorData.error || '업로드에 실패했습니다.');
       }
 
       const data: FileUploadResponse = await response.json();
       
       if (data.success) {
+        console.log('✅ 업로드 완료:', data.session?.sessionId);
         onUploadComplete(data);
         setFile(null);
       } else {
         throw new Error(data.error || '업로드에 실패했습니다.');
       }
     } catch (error) {
+      console.error('❌ 업로드 오류:', error);
       onError(error instanceof Error ? error.message : '업로드에 실패했습니다.');
     } finally {
       setUploading(false);
       setUploadProgress(0);
     }
-  }, [file, onUploadComplete, onError]);
+  }, [file, onUploadComplete, onError, userInfo]);
 
   const handleRemoveFile = useCallback(() => {
     setFile(null);

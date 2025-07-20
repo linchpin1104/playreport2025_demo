@@ -7,7 +7,7 @@ import { ServiceResult } from '../interfaces';
 import { VideoAnalyzer } from '../video-analyzer';
 import { ErrorHandlingService } from './error-handling-service';
 import { Logger } from './logger';
-import { ConfigManager } from './config-manager';
+import { configManager } from './config-manager';
 
 export interface VideoAnalysisRequest {
   sessionId?: string;
@@ -116,7 +116,7 @@ export class VideoAnalysisService {
 
         // 런타임에서 필요한 환경변수 검증
         try {
-          const configManager = ConfigManager.getInstance();
+          // 이미 export된 configManager 인스턴스 사용
           
           // GCP 관련 설정이 필요한 경우에만 체크
           if (request.options?.enableTranscription || 

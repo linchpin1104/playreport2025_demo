@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import config from '@/lib/config';
+import { configManager } from '@/lib/services/config-manager';
 import { PlayAnalysisExtractor } from '@/lib/play-analysis-extractor';
 import { PlayDataStorage } from '@/lib/play-data-storage';
 import { PlayEvaluationSystem } from '@/lib/play-evaluation-system';
@@ -46,7 +46,6 @@ interface ComprehensiveAnalysisResponse {
     evaluation?: any;
     report?: any;
   };
-  error?: string;
   startTime: string;
   endTime?: string;
   totalProgress: number;
@@ -186,7 +185,7 @@ export async function POST(request: NextRequest) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             sessionId,
-            gsUri: sessionData.paths.rawDataPath || `gs://${config.googleCloud.storageBucket}/${sessionData.metadata.fileName}`,
+            gsUri: sessionData.paths.rawDataPath || `gs://${configManager.get('gcp.bucketName')}/${sessionData.metadata.fileName}`,
             fileName: sessionData.metadata.fileName
           })
         });
@@ -316,14 +315,14 @@ export async function POST(request: NextRequest) {
     await updateStep(storage, sessionId, steps, 'evaluation', 'in_progress', 0, '놀이 상호작용 평가를 수행하고 있습니다...');
     
     const evaluationResult = await evaluationSystem.evaluatePlaySession(
-      integratedAnalysisResult
+      integratedAnalysisResult as any
     );
     
     await updateStep(storage, sessionId, steps, 'evaluation', 'completed', 100, '종합 평가 완료');
     response.results!.evaluation = evaluationResult;
     
     // 평가 결과 저장
-    await storage.saveEvaluationData(sessionId, evaluationResult);
+    await storage.saveEvaluationData(sessionId, evaluationResult as any);
     
     // Step 7: 리포트 생성
     await updateStep(storage, sessionId, steps, 'report_generation', 'in_progress', 0, '최종 분석 리포트를 생성하고 있습니다...');
@@ -342,7 +341,7 @@ export async function POST(request: NextRequest) {
     response.results!.report = reportResult;
     
     // 리포트 저장
-    await storage.saveReportData(sessionId, reportResult);
+    await storage.saveReportData(sessionId, reportResult as any);
     
     // Step 8: 완료 처리
     await updateStep(storage, sessionId, steps, 'finalization', 'in_progress', 0, '분석 결과를 저장하고 마무리하고 있습니다...');
@@ -357,11 +356,11 @@ export async function POST(request: NextRequest) {
       
       // 통합 분석 정보 업데이트
       finalSessionData.integratedAnalysis = {
-        overallScore: integratedAnalysisResult.overallScore,
-        interactionQuality: integratedAnalysisResult.interactionQuality,
-        completedAt: integratedAnalysisResult.completedAt,
-        processingSteps: integratedAnalysisResult.processingSteps
-      };
+        overallScore: (integratedAnalysisResult as any).overallScore,
+        interactionQuality: (integratedAnalysisResult as any).interactionQuality,
+        completedAt: (integratedAnalysisResult as any).completedAt,
+        processingSteps: (integratedAnalysisResult as any).processingSteps
+      } as any;
       
       await storage.saveSessionData(sessionId, finalSessionData);
     }
@@ -378,10 +377,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
     
   } catch (error) {
-    logger.error('❌ Comprehensive analysis error:', error);
+    logger.error('❌ Comprehensive analysis error:', error as Error);
     
-    // 에러 발생시에도 기본 응답 반환 (sessionId가 정의되지 않은 경우를 대비)
-    const errorSessionId = typeof sessionId !== 'undefined' ? sessionId : 'unknown';
+    // sessionId가 정의되지 않은 경우를 대비한 안전한 처리
+    let errorSessionId: string;
+    try {
+      errorSessionId = sessionId;
+    } catch {
+      errorSessionId = 'unknown';
+    }
+    
     return NextResponse.json({
       sessionId: errorSessionId,
       status: 'error',

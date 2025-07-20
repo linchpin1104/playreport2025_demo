@@ -1,8 +1,8 @@
 import { readFileSync } from 'fs';
 import { VideoIntelligenceServiceClient, protos } from '@google-cloud/video-intelligence';
-import config from '@/lib/config';
 import { VideoIntelligenceResults } from '@/types';
 import { Logger } from './services/logger';
+import { configManager } from './services/config-manager';
 
 export interface VideoAnalysisOptions {
   enableVoiceAnalysis?: boolean;
@@ -23,9 +23,18 @@ export class VideoAnalyzer {
   private readonly features: protos.google.cloud.videointelligence.v1.Feature[];
 
   constructor() {
+    // 이미 export된 configManager 인스턴스 사용
+    const config = configManager.getAll();
+    
+    logger.info('🔧 Initializing VideoIntelligenceServiceClient', {
+      projectId: config.gcp.projectId,
+      keyFile: config.gcp.keyFile,
+      keyFileExists: config.gcp.keyFile ? 'true' : 'false'
+    });
+    
     this.client = new VideoIntelligenceServiceClient({
-      projectId: config.googleCloud.projectId,
-      keyFilename: config.googleCloud.keyFile,
+      projectId: config.gcp.projectId,
+      keyFilename: config.gcp.keyFile,
     });
 
     this.features = [
@@ -98,7 +107,7 @@ export class VideoAnalyzer {
       return this.processResults(result);
       
     } catch (error) {
-      logger.error('❌ 비디오 분석 중 오류:', error);
+      logger.error('❌ 비디오 분석 중 오류:', error as Error);
       throw new Error(`비디오 분석 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     }
   }
@@ -111,11 +120,11 @@ export class VideoAnalyzer {
     const rawDataSize = JSON.stringify(result).length;
     logger.info(`📊 Video Intelligence API Raw Data Size: ${(rawDataSize / 1024 / 1024).toFixed(2)}MB`);
     
-    logger.info('🔍 Video Intelligence API Raw Result:', JSON.stringify({
+    logger.info('🔍 Video Intelligence API Raw Result:', {
       hasAnnotationResults: !!result.annotationResults,
       annotationResultsLength: result.annotationResults?.length ?? 0,
       annotationResultsKeys: result.annotationResults?.[0] ? Object.keys(result.annotationResults[0]) : []
-    }, null, 2));
+    });
 
     const annotationResults = result.annotationResults?.[0];
     
@@ -124,7 +133,7 @@ export class VideoAnalyzer {
       throw new Error('분석 결과가 없습니다.');
     }
 
-    logger.info('📊 Annotation Results Keys:', Object.keys(annotationResults));
+    logger.info('📊 Annotation Results Keys:', { keys: Object.keys(annotationResults) });
     
     // 🔍 각 필드별 원본 데이터 크기 측정
     const fieldSizes: Record<string, string> = {};
@@ -255,11 +264,11 @@ export class VideoAnalyzer {
     })) || [];
 
     // 사람 감지 데이터 처리
-    logger.info('🔍 Person Detection Raw Data:', JSON.stringify({
+    logger.info('🔍 Person Detection Raw Data:', {
       hasPersonDetectionAnnotations: !!annotationResults.personDetectionAnnotations,
       personDetectionLength: annotationResults.personDetectionAnnotations?.length ?? 0,
       firstPersonSample: annotationResults.personDetectionAnnotations?.[0] || null
-    }, null, 2));
+    });
     
     const personDetection = annotationResults.personDetectionAnnotations?.map((person: any) => ({
       tracks: person.tracks?.map((track: any) => ({
@@ -315,8 +324,7 @@ export class VideoAnalyzer {
       faceDetection,
       personDetection,
       shotChanges,
-      explicitContent,
-      textDetection
+      explicitContent: explicitContent || [] // Ensure explicitContent is always defined
     };
 
     // 🔍 처리된 데이터 크기 분석
