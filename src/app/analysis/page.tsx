@@ -76,13 +76,18 @@ function AnalysisPageContent() {
   // 중복 호출 방지를 위한 refs
   const analysisStarted = useRef(false);
 
-  // 통합 분석 실행 - 오직 comprehensive-analysis API만 호출
+  // 통합 분석 실행 - 중복 호출 방지 강화
   const startComprehensiveAnalysis = useCallback(async () => {
     if (!sessionId || analysisStarted.current || isAnalyzing) {
+      console.log(`🛑 Duplicate call blocked - sessionId: ${!!sessionId}, started: ${analysisStarted.current}, analyzing: ${isAnalyzing}`);
       return;
     }
 
     console.log(`🚀 Starting COMPREHENSIVE analysis for session: ${sessionId}`);
+    
+    // 즉시 플래그 설정으로 중복 방지
+    analysisStarted.current = true;
+    setIsAnalyzing(true);
     
     // 먼저 기존 세션 상태 확인
     try {
@@ -99,10 +104,10 @@ function AnalysisPageContent() {
             return;
           }
           
-          // 진행 중인 분석이면 경고 표시
+          // 진행 중인 분석이면 기존 실행 중단
           if (status === 'comprehensive_analysis_started') {
-            console.log(`⚠️ Analysis already in progress for session: ${sessionId}`);
-            setError('이미 분석이 진행 중입니다. 잠시 후 다시 시도해주세요.');
+            console.log(`⚠️ Analysis already in progress for session: ${sessionId}, will continue monitoring`);
+            // 플래그는 유지하되 새로운 요청은 하지 않음
             return;
           }
         }
@@ -110,10 +115,6 @@ function AnalysisPageContent() {
     } catch (error) {
       console.warn('Session check failed, proceeding with analysis:', error);
     }
-    
-    analysisStarted.current = true;
-    setIsAnalyzing(true);
-    setError(null);
 
     // 초기 상태 설정
     const initialSteps: AnalysisStep[] = Object.keys(STEP_INFO).map(stepKey => ({
@@ -162,30 +163,29 @@ function AnalysisPageContent() {
         }, 2000);
       } else if (result.status === 'error') {
         setError(result.error || '분석 중 오류가 발생했습니다.');
+        analysisStarted.current = false; // 에러 시 재시도 가능하도록
       }
 
-    } catch (err) {
-      console.error('❌ Comprehensive analysis error:', err);
-      const errorMessage = err instanceof Error ? err.message : '분석 중 오류가 발생했습니다.';
-      setError(errorMessage);
+    } catch (error) {
+      console.error('❌ Comprehensive analysis failed:', error);
+      setError(error instanceof Error ? error.message : '분석 요청 중 오류가 발생했습니다.');
+      analysisStarted.current = false; // 에러 시 재시도 가능하도록
       
-      // 에러가 발생해도 기본 분석이 있을 수 있으니 결과 페이지로 이동 시도
       setTimeout(() => {
-        console.log('🔄 Attempting to redirect to results despite error...');
         router.push(`/results?sessionId=${sessionId}`);
       }, 5000);
     } finally {
       setIsAnalyzing(false);
     }
-  }, [sessionId, router, isAnalyzing]);
+  }, [sessionId, router]); // isAnalyzing 의존성 제거!
 
-  // 자동 분석 시작
+  // 자동 분석 시작 - 더 엄격한 조건 체크
   useEffect(() => {
     if (sessionId && !analysisStarted.current && !isAnalyzing) {
       console.log(`📋 Auto-starting comprehensive analysis for session: ${sessionId}`);
       startComprehensiveAnalysis();
     }
-  }, [sessionId, startComprehensiveAnalysis, isAnalyzing]);
+  }, [sessionId, startComprehensiveAnalysis]); // isAnalyzing 의존성 제거!
 
   // 현재 활성 단계 계산
   const getCurrentStepInfo = () => {
