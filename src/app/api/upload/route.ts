@@ -40,32 +40,64 @@ export async function POST(request: NextRequest) {
   try {
     // 파일 크기 체크를 먼저 수행 (메모리 절약)
     const contentLength = request.headers.get('content-length');
-    const maxSize = 500 * 1024 * 1024; // 500MB
+    const maxSize = 100 * 1024 * 1024; // Vercel 호환성을 위해 100MB로 조정
     
     if (contentLength && parseInt(contentLength) > maxSize) {
+      console.warn(`❌ File too large: ${contentLength} bytes (max: ${maxSize})`);
       return NextResponse.json(
-        { success: false, error: '파일 크기가 500MB를 초과합니다.' },
-        { status: 413 } // Request Entity Too Large
+        { success: false, error: '파일 크기가 100MB를 초과합니다. 더 작은 파일을 업로드해주세요.' },
+        { 
+          status: 413,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
     }
 
     console.log('📤 파일 업로드 요청 시작...');
     
-    const formData = await request.formData();
+    // FormData 파싱 시도
+    let formData;
+    try {
+      formData = await request.formData();
+    } catch (formDataError) {
+      console.error('❌ FormData 파싱 실패:', formDataError);
+      return NextResponse.json(
+        { success: false, error: '파일 데이터를 읽을 수 없습니다. 파일이 너무 크거나 손상되었을 수 있습니다.' },
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+    }
+    
     const file = formData.get('video') as File;
     const userInfoString = formData.get('userInfo') as string;
     
     if (!file) {
       return NextResponse.json(
         { success: false, error: '파일이 선택되지 않았습니다.' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
     }
 
     if (!userInfoString) {
       return NextResponse.json(
         { success: false, error: '사용자 정보가 필요합니다.' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
     }
 
@@ -76,7 +108,12 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json(
         { success: false, error: '사용자 정보 형식이 올바르지 않습니다.' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
     }
 
@@ -84,28 +121,43 @@ export async function POST(request: NextRequest) {
     const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm'];
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { success: false, error: '지원하지 않는 파일 형식입니다.' },
-        { status: 400 }
+        { success: false, error: '지원하지 않는 파일 형식입니다. (MP4, MOV, AVI, MKV, WebM만 지원)' },
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
     }
 
     // Validate file size (after FormData parsing)
     if (file.size > maxSize) {
       return NextResponse.json(
-        { success: false, error: '파일 크기가 500MB를 초과합니다.' },
-        { status: 413 }
+        { success: false, error: `파일 크기가 ${Math.round(maxSize / 1024 / 1024)}MB를 초과합니다. (업로드된 파일: ${Math.round(file.size / 1024 / 1024)}MB)` },
+        { 
+          status: 413,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
     }
 
-    console.log(`📁 파일 정보: ${file.name} (${file.size} bytes, ${file.type})`);
+    console.log(`📁 파일 정보: ${file.name} (${Math.round(file.size / 1024 / 1024)}MB, ${file.type})`);
 
     // Google Cloud Storage 초기화
     const storageInstance = initializeStorage();
     
     if (!storageInstance) {
       return NextResponse.json(
-        { success: false, error: 'Google Cloud Storage 설정이 필요합니다.' },
-        { status: 503 }
+        { success: false, error: 'Google Cloud Storage 설정이 필요합니다. 관리자에게 문의하세요.' },
+        { 
+          status: 503,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
     }
 

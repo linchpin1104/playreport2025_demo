@@ -99,8 +99,36 @@ export default function VideoUpload({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '업로드에 실패했습니다.');
+        // 응답이 JSON인지 확인
+        const contentType = response.headers.get('content-type');
+        let errorMessage = '업로드에 실패했습니다.';
+        
+        try {
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } else {
+            // HTML이나 텍스트 응답 처리
+            const errorText = await response.text();
+            console.error('서버 에러 응답:', errorText);
+            
+            // 일반적인 HTTP 에러 메시지 처리
+            if (response.status === 413) {
+              errorMessage = '파일 크기가 너무 큽니다. (최대 500MB)';
+            } else if (response.status === 400) {
+              errorMessage = '잘못된 요청입니다.';
+            } else if (response.status === 500) {
+              errorMessage = '서버 오류가 발생했습니다.';
+            } else {
+              errorMessage = `업로드 실패 (${response.status})`;
+            }
+          }
+        } catch (parseError) {
+          console.error('응답 파싱 오류:', parseError);
+          errorMessage = `업로드 실패 (${response.status})`;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const data: FileUploadResponse = await response.json();

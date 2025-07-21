@@ -37,10 +37,10 @@ const nextConfig = {
       exclude: ['error', 'warn']
     } : false,
   },
-  // Server Actions 설정 - App Router용
+  // App Router용 파일 업로드 설정
   experimental: {
     serverActions: {
-      bodySizeLimit: '350mb',
+      bodySizeLimit: '100mb', // Vercel 호환성을 위해 100MB로 설정
       allowedOrigins: [
         'localhost:3000',
         '*.vercel.app',
