@@ -40,7 +40,7 @@ const nextConfig = {
   // App Router용 파일 업로드 설정
   experimental: {
     serverActions: {
-      bodySizeLimit: '100mb', // Vercel 호환성을 위해 100MB로 설정
+      bodySizeLimit: '500mb', // 원래 의도대로 500MB 설정
       allowedOrigins: [
         'localhost:3000',
         '*.vercel.app',

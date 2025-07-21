@@ -20,7 +20,7 @@ const allowedExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
 export default function VideoUpload({ 
   onUploadComplete, 
   onError,
-  maxFileSize = 500, // 기본값 500MB로 증가
+  maxFileSize = 500, // 원래 의도대로 500MB 제한
   userInfo, // userInfo prop 추가
 }: VideoUploadProps) {
   const [file, setFile] = useState<File | null>(null);
@@ -85,18 +85,27 @@ export default function VideoUpload({
     setUploadProgress(0);
 
     try {
-      console.log('🚀 업로드 시작:', file.name, `(${Math.round(file.size / 1024 / 1024)}MB)`);
+      const fileSizeMB = Math.round(file.size / 1024 / 1024 * 100) / 100;
+      console.log('🚀 클라이언트 업로드 시작:');
+      console.log(`   - 파일명: ${file.name}`);
+      console.log(`   - 파일 크기: ${file.size} bytes (${fileSizeMB}MB)`);
+      console.log(`   - 파일 타입: ${file.type}`);
+      console.log(`   - 최대 허용: ${maxFileSize}MB`);
       
       const formData = new FormData();
       formData.append('video', file);
       
       // userInfo를 JSON 문자열로 추가
       formData.append('userInfo', JSON.stringify(userInfo));
+      
+      console.log('📤 서버로 전송 시작...');
 
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
+
+      console.log(`📥 서버 응답: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
         // 응답이 JSON인지 확인
@@ -147,7 +156,7 @@ export default function VideoUpload({
       setUploading(false);
       setUploadProgress(0);
     }
-  }, [file, onUploadComplete, onError, userInfo]);
+  }, [file, onUploadComplete, onError, userInfo, maxFileSize]);
 
   const handleRemoveFile = useCallback(() => {
     setFile(null);

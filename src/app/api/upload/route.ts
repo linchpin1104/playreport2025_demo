@@ -38,14 +38,19 @@ function initializeStorage() {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚀 업로드 API 시작');
+    
     // 파일 크기 체크를 먼저 수행 (메모리 절약)
     const contentLength = request.headers.get('content-length');
-    const maxSize = 100 * 1024 * 1024; // Vercel 호환성을 위해 100MB로 조정
+    const maxSize = 500 * 1024 * 1024; // 원래 의도대로 500MB 제한
+    
+    console.log(`📊 Content-Length 헤더: ${contentLength} bytes`);
+    console.log(`📊 최대 허용 크기: ${maxSize} bytes (${maxSize / 1024 / 1024}MB)`);
     
     if (contentLength && parseInt(contentLength) > maxSize) {
-      console.warn(`❌ File too large: ${contentLength} bytes (max: ${maxSize})`);
+      console.warn(`❌ Content-Length 체크 실패: ${contentLength} > ${maxSize}`);
       return NextResponse.json(
-        { success: false, error: '파일 크기가 100MB를 초과합니다. 더 작은 파일을 업로드해주세요.' },
+        { success: false, error: `파일 크기가 500MB를 초과합니다. (Content-Length: ${Math.round(parseInt(contentLength) / 1024 / 1024)}MB)` },
         { 
           status: 413,
           headers: {
@@ -55,12 +60,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('📤 파일 업로드 요청 시작...');
+    console.log('✅ Content-Length 체크 통과');
+    console.log('📤 FormData 파싱 시작...');
     
     // FormData 파싱 시도
     let formData;
     try {
       formData = await request.formData();
+      console.log('✅ FormData 파싱 성공');
     } catch (formDataError) {
       console.error('❌ FormData 파싱 실패:', formDataError);
       return NextResponse.json(
@@ -78,6 +85,7 @@ export async function POST(request: NextRequest) {
     const userInfoString = formData.get('userInfo') as string;
     
     if (!file) {
+      console.error('❌ 파일이 FormData에 없음');
       return NextResponse.json(
         { success: false, error: '파일이 선택되지 않았습니다.' },
         { 
@@ -89,6 +97,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`📁 실제 파일 정보:`);
+    console.log(`   - 이름: ${file.name}`);
+    console.log(`   - 크기: ${file.size} bytes (${Math.round(file.size / 1024 / 1024 * 100) / 100}MB)`);
+    console.log(`   - 타입: ${file.type}`);
+    
     if (!userInfoString) {
       return NextResponse.json(
         { success: false, error: '사용자 정보가 필요합니다.' },
@@ -132,7 +145,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file size (after FormData parsing)
+    console.log(`🔍 파일 크기 재검증:`);
+    console.log(`   - file.size: ${file.size} bytes (${Math.round(file.size / 1024 / 1024 * 100) / 100}MB)`);
+    console.log(`   - maxSize: ${maxSize} bytes (${Math.round(maxSize / 1024 / 1024)}MB)`);
+    console.log(`   - 비교 결과: ${file.size} > ${maxSize} = ${file.size > maxSize}`);
+    
     if (file.size > maxSize) {
+      console.error(`❌ 실제 파일 크기 검증 실패!`);
+      console.error(`   - 업로드된 파일: ${Math.round(file.size / 1024 / 1024 * 100) / 100}MB`);
+      console.error(`   - 허용 크기: ${Math.round(maxSize / 1024 / 1024)}MB`);
       return NextResponse.json(
         { success: false, error: `파일 크기가 ${Math.round(maxSize / 1024 / 1024)}MB를 초과합니다. (업로드된 파일: ${Math.round(file.size / 1024 / 1024)}MB)` },
         { 
@@ -143,6 +164,8 @@ export async function POST(request: NextRequest) {
         }
       );
     }
+
+    console.log('✅ 실제 파일 크기 검증 통과');
 
     console.log(`📁 파일 정보: ${file.name} (${Math.round(file.size / 1024 / 1024)}MB, ${file.type})`);
 

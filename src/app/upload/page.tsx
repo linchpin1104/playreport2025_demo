@@ -131,16 +131,16 @@ export default function UploadPage() {
             {/* 기존 검증된 업로드 컴포넌트 사용 */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="w-5 h-5" />
+                <CardTitle className="text-center flex items-center justify-center gap-3">
+                  <Upload className="h-6 w-6 text-blue-600" />
                   영상 파일 업로드 (최대 500MB)
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <VideoUpload
                   onUploadComplete={handleUploadComplete}
-                  onError={handleUploadError}
-                  maxFileSize={500}
+                  onUploadError={handleUploadError}
+                  maxFileSize={500} // 원래 의도대로 500MB 제한
                   userInfo={userInfo}
                 />
               </CardContent>
