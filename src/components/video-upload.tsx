@@ -86,69 +86,88 @@ export default function VideoUpload({
 
     try {
       const fileSizeMB = Math.round(file.size / 1024 / 1024 * 100) / 100;
-      console.log('🚀 클라이언트 업로드 시작:');
+      console.log('🚀 Presigned URL 업로드 시작:');
       console.log(`   - 파일명: ${file.name}`);
       console.log(`   - 파일 크기: ${file.size} bytes (${fileSizeMB}MB)`);
       console.log(`   - 파일 타입: ${file.type}`);
-      console.log(`   - 최대 허용: ${maxFileSize}MB`);
       
-      const formData = new FormData();
-      formData.append('video', file);
-      
-      // userInfo를 JSON 문자열로 추가
-      formData.append('userInfo', JSON.stringify(userInfo));
-      
-      console.log('📤 서버로 전송 시작...');
-
-      const response = await fetch('/api/upload', {
+      // 1단계: Presigned URL 요청
+      console.log('📝 1단계: Presigned URL 요청...');
+      const urlResponse = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileSize: file.size,
+          contentType: file.type,
+          userInfo: userInfo
+        }),
       });
 
-      console.log(`📥 서버 응답: ${response.status} ${response.statusText}`);
-
-      if (!response.ok) {
-        // 응답이 JSON인지 확인
-        const contentType = response.headers.get('content-type');
-        let errorMessage = '업로드에 실패했습니다.';
-        
-        try {
-          if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } else {
-            // HTML이나 텍스트 응답 처리
-            const errorText = await response.text();
-            console.error('서버 에러 응답:', errorText);
-            
-            // 일반적인 HTTP 에러 메시지 처리
-            if (response.status === 413) {
-              errorMessage = '파일 크기가 너무 큽니다. (최대 500MB)';
-            } else if (response.status === 400) {
-              errorMessage = '잘못된 요청입니다.';
-            } else if (response.status === 500) {
-              errorMessage = '서버 오류가 발생했습니다.';
-            } else {
-              errorMessage = `업로드 실패 (${response.status})`;
-            }
-          }
-        } catch (parseError) {
-          console.error('응답 파싱 오류:', parseError);
-          errorMessage = `업로드 실패 (${response.status})`;
-        }
-        
-        throw new Error(errorMessage);
+      if (!urlResponse.ok) {
+        const errorData = await urlResponse.json();
+        throw new Error(errorData.error || 'Presigned URL 생성 실패');
       }
 
-      const data: FileUploadResponse = await response.json();
-      
-      if (data.success) {
-        console.log('✅ 업로드 완료:', data.session?.sessionId);
-        onUploadComplete(data);
-        setFile(null);
+      const urlData = await urlResponse.json();
+      console.log('✅ Presigned URL 받음:', urlData.sessionId);
+
+      // 2단계: GCS로 직접 업로드
+      console.log('📤 2단계: Google Cloud Storage로 직접 업로드...');
+      setUploadProgress(25);
+
+      const uploadResponse = await fetch(urlData.uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        console.error('GCS 업로드 실패:', uploadResponse.status, uploadResponse.statusText);
+        throw new Error(`직접 업로드 실패: ${uploadResponse.status}`);
+      }
+
+      console.log('✅ GCS 업로드 완료');
+      setUploadProgress(75);
+
+      // 3단계: 서버에 업로드 완료 알림
+      console.log('🔔 3단계: 업로드 완료 알림...');
+      const completeResponse = await fetch('/api/upload/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: urlData.sessionId
+        }),
+      });
+
+      if (!completeResponse.ok) {
+        console.warn('업로드 완료 알림 실패 (파일은 업로드됨)');
       } else {
-        throw new Error(data.error || '업로드에 실패했습니다.');
+        console.log('✅ 업로드 완료 알림 성공');
       }
+
+      setUploadProgress(100);
+
+      // 성공 데이터 구성
+      const result: FileUploadResponse = {
+        success: true,
+        fileName: urlData.fileName,
+        originalName: urlData.originalName,
+        fileSize: urlData.fileSize,
+        gsUri: urlData.gsUri,
+        session: urlData.session
+      };
+      
+      console.log('✅ 업로드 완료:', result.session?.sessionId);
+      onUploadComplete(result);
+      setFile(null);
+      
     } catch (error) {
       console.error('❌ 업로드 오류:', error);
       onError(error instanceof Error ? error.message : '업로드에 실패했습니다.');
@@ -156,7 +175,7 @@ export default function VideoUpload({
       setUploading(false);
       setUploadProgress(0);
     }
-  }, [file, onUploadComplete, onError, userInfo, maxFileSize]);
+  }, [file, onUploadComplete, onError, userInfo]);
 
   const handleRemoveFile = useCallback(() => {
     setFile(null);
