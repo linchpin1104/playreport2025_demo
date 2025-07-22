@@ -32,6 +32,10 @@ interface ComprehensiveAnalysisResponse {
   startTime: string;
   endTime?: string;
   totalProgress: number;
+  polling?: {
+    statusUrl: string;
+    interval: number;
+  };
 }
 
 // 간소화된 5단계 정의 (comprehensive-analysis와 일치)
@@ -75,8 +79,9 @@ function AnalysisPageContent() {
   
   // 중복 호출 방지를 위한 refs
   const analysisStarted = useRef(false);
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // 통합 분석 실행 - 중복 호출 방지 강화
+  // 통합 분석 실행 - 비동기 처리 지원
   const startComprehensiveAnalysis = useCallback(async () => {
     if (!sessionId || analysisStarted.current || isAnalyzing) {
       console.log(`🛑 Duplicate call blocked - sessionId: ${!!sessionId}, started: ${analysisStarted.current}, analyzing: ${isAnalyzing}`);
@@ -88,52 +93,10 @@ function AnalysisPageContent() {
     // 즉시 플래그 설정으로 중복 방지
     analysisStarted.current = true;
     setIsAnalyzing(true);
-    
-    // 먼저 기존 세션 상태 확인
-    try {
-      const sessionCheckResponse = await fetch(`/api/play-sessions/${sessionId}`);
-      if (sessionCheckResponse.ok) {
-        const sessionData = await sessionCheckResponse.json();
-        if (sessionData.success && sessionData.session) {
-          const status = sessionData.session.metadata?.status;
-          
-          // 이미 완료된 분석이면 결과 페이지로 직접 이동
-          if (status === 'comprehensive_analysis_completed') {
-            console.log(`✅ Analysis already completed for session: ${sessionId}. Redirecting...`);
-            router.push(`/results?sessionId=${sessionId}`);
-            return;
-          }
-          
-          // 진행 중인 분석이면 기존 실행 중단
-          if (status === 'comprehensive_analysis_started') {
-            console.log(`⚠️ Analysis already in progress for session: ${sessionId}, will continue monitoring`);
-            // 플래그는 유지하되 새로운 요청은 하지 않음
-            return;
-          }
-        }
-      }
-    } catch (error) {
-      console.warn('Session check failed, proceeding with analysis:', error);
-    }
-
-    // 초기 상태 설정
-    const initialSteps: AnalysisStep[] = Object.keys(STEP_INFO).map(stepKey => ({
-      step: stepKey,
-      status: 'pending' as const,
-      progress: 0,
-      message: STEP_INFO[stepKey as keyof typeof STEP_INFO].description
-    }));
-
-    setAnalysisResult({
-      sessionId,
-      status: 'in_progress',
-      steps: initialSteps,
-      startTime: new Date().toISOString(),
-      totalProgress: 0
-    });
+    setError(null);
 
     try {
-      // 🎯 단 하나의 API만 호출: comprehensive-analysis
+      // 🎯 비동기 분석 API 호출
       const response = await fetch('/api/comprehensive-analysis', {
         method: 'POST',
         headers: {
@@ -141,7 +104,7 @@ function AnalysisPageContent() {
         },
         body: JSON.stringify({
           sessionId,
-          videoPath: `${sessionId}.mp4`
+          async: true  // 비동기 처리 요청
         }),
       });
 
@@ -150,34 +113,122 @@ function AnalysisPageContent() {
         throw new Error(errorData.error || `API 호출 실패: ${response.status}`);
       }
 
-      const result: ComprehensiveAnalysisResponse = await response.json();
+      const result = await response.json();
+      console.log('✅ Analysis response:', result);
       
-      console.log('✅ Comprehensive analysis result:', result);
-      setAnalysisResult(result);
-
-      // 성공적으로 완료된 경우 결과 페이지로 이동
       if (result.status === 'completed') {
-        console.log(`🎉 Analysis completed! Redirecting to results page...`);
+        // 즉시 완료된 경우
+        setAnalysisResult(result);
+        console.log(`🎉 Analysis completed immediately!`);
         setTimeout(() => {
           router.push(`/results?sessionId=${sessionId}`);
         }, 2000);
-      } else if (result.status === 'error') {
-        setError(result.error || '분석 중 오류가 발생했습니다.');
-        analysisStarted.current = false; // 에러 시 재시도 가능하도록
+      } else if (result.status === 'queued' || result.status === 'processing') {
+        // 비동기 처리 - 폴링 시작
+        console.log(`⏳ Analysis queued/processing. Starting polling...`);
+        setAnalysisResult(result);
+        startPolling(result.polling?.statusUrl, result.polling?.interval || 15);
+      } else if (result.status === 'failed') {
+        setError(result.error || '분석 시작 실패');
+        analysisStarted.current = false;
       }
 
     } catch (error) {
-      console.error('❌ Comprehensive analysis failed:', error);
+      console.error('❌ Analysis request failed:', error);
       setError(error instanceof Error ? error.message : '분석 요청 중 오류가 발생했습니다.');
-      analysisStarted.current = false; // 에러 시 재시도 가능하도록
-      
-      setTimeout(() => {
-        router.push(`/results?sessionId=${sessionId}`);
-      }, 5000);
+      analysisStarted.current = false;
     } finally {
       setIsAnalyzing(false);
     }
-  }, [sessionId, router]); // isAnalyzing 의존성 제거!
+  }, [sessionId, router]);
+
+  // 폴링 시작
+  const startPolling = useCallback((statusUrl?: string, interval: number = 15) => {
+    if (!statusUrl || !sessionId) return;
+    
+    console.log(`🔄 Starting polling: ${statusUrl} (every ${interval}s)`);
+    
+    // 기존 폴링 정리
+    if (pollingInterval.current) {
+      clearInterval(pollingInterval.current);
+    }
+
+    let attempts = 0;
+    const maxAttempts = 40; // 10분 최대 대기 (15초 * 40)
+
+    pollingInterval.current = setInterval(async () => {
+      attempts++;
+      
+      if (attempts > maxAttempts) {
+        console.log('⏰ Polling timeout reached');
+        setError('분석 시간이 초과되었습니다. 영상이 너무 길거나 서버에 부하가 있을 수 있습니다.');
+        stopPolling();
+        return;
+      }
+
+      try {
+        console.log(`🔍 Polling attempt ${attempts}/${maxAttempts}...`);
+        const statusResponse = await fetch(statusUrl);
+        
+        if (!statusResponse.ok) {
+          throw new Error(`Status check failed: ${statusResponse.status}`);
+        }
+
+        const statusResult = await statusResponse.json();
+        console.log(`📊 Status update:`, statusResult);
+
+        // 분석 결과 업데이트
+        setAnalysisResult(prev => ({
+          ...prev!,
+          status: statusResult.status,
+          totalProgress: statusResult.progress,
+          steps: prev?.steps?.map(step => ({
+            ...step,
+            message: step.step === 'video_audio_analysis' ? statusResult.currentStep : step.message,
+            progress: step.step === 'video_audio_analysis' ? statusResult.progress : step.progress,
+            status: statusResult.status === 'completed' ? 'completed' : 
+                   statusResult.status === 'failed' ? 'error' : 'in_progress'
+          }))
+        }));
+
+        if (statusResult.status === 'completed') {
+          console.log(`🎉 Analysis completed via polling!`);
+          stopPolling();
+          setTimeout(() => {
+            router.push(`/results?sessionId=${sessionId}`);
+          }, 2000);
+        } else if (statusResult.status === 'failed') {
+          console.log(`❌ Analysis failed:`, statusResult.error);
+          setError(statusResult.error || '분석 중 오류가 발생했습니다.');
+          stopPolling();
+          analysisStarted.current = false;
+        }
+
+      } catch (error) {
+        console.error(`❌ Polling error (attempt ${attempts}):`, error);
+        if (attempts > 5) { // 5회 연속 실패시 중단
+          setError('서버와의 연결에 문제가 있습니다.');
+          stopPolling();
+        }
+      }
+    }, interval * 1000);
+  }, [sessionId, router]);
+
+  // 폴링 중단
+  const stopPolling = useCallback(() => {
+    if (pollingInterval.current) {
+      clearInterval(pollingInterval.current);
+      pollingInterval.current = null;
+      console.log('🛑 Polling stopped');
+    }
+  }, []);
+
+  // 컴포넌트 언마운트 시 폴링 정리
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, [stopPolling]);
 
   // 자동 분석 시작 - 더 엄격한 조건 체크
   useEffect(() => {
