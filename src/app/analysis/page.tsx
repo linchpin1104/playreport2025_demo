@@ -240,7 +240,9 @@ function AnalysisPageContent() {
 
   // 현재 활성 단계 계산
   const getCurrentStepInfo = () => {
-    if (!analysisResult?.steps) {return null;}
+    if (!analysisResult?.steps || !Array.isArray(analysisResult.steps)) {
+      return null;
+    }
     
     const activeStep = analysisResult.steps.find(step => step.status === 'in_progress') || 
                       analysisResult.steps.find(step => step.status === 'pending');
@@ -343,7 +345,7 @@ function AnalysisPageContent() {
         {/* 분석 단계 목록 */}
         <div className="space-y-4">
           {Object.entries(STEP_INFO).map(([stepKey, stepInfo]) => {
-            const stepData = analysisResult?.steps.find(s => s.step === stepKey);
+            const stepData = analysisResult?.steps?.find(s => s.step === stepKey);
             const isActive = currentStep?.step === stepKey;
             const isCompleted = stepData?.status === 'completed';
             const isError = stepData?.status === 'error';

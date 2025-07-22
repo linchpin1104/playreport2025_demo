@@ -145,7 +145,7 @@ export default function UserInfoPage() {
             <div className="space-y-2">
               <Label htmlFor="caregiverType">양육자 타입 *</Label>
               <Select
-                value={userInfo.caregiverType}
+                value={userInfo.caregiverType || ''}
                 onValueChange={(value) => handleInputChange('caregiverType', value)}
               >
                 <SelectTrigger>
@@ -195,7 +195,7 @@ export default function UserInfoPage() {
               <div className="space-y-2 mt-4">
                 <Label htmlFor="childGender">아이 성별 *</Label>
                 <Select
-                  value={userInfo.childGender}
+                  value={userInfo.childGender || ''}
                   onValueChange={(value) => handleInputChange('childGender', value)}
                 >
                   <SelectTrigger>
