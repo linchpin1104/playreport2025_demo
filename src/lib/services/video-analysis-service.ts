@@ -278,20 +278,43 @@ export class VideoAnalysisService {
         const hasPersonDetection = results.personDetection && results.personDetection.length > 0;
         const hasPersonInObjects = results.objectTracking && 
           results.objectTracking.some((obj: any) => 
-            obj.entity?.description?.toLowerCase() === 'person' && obj.confidence > 0.5
+            obj.entity?.description?.toLowerCase() === 'person' && obj.confidence > 0.3  // 0.5 → 0.3으로 완화
           );
+        
+        // 얼굴 감지도 사람 존재의 간접 지표로 활용
+        const hasFaceDetection = results.faceDetection && results.faceDetection.length > 0;
 
-        if (!hasPersonDetection && !hasPersonInObjects) {
+        // 더 관대한 사람 감지 기준
+        if (!hasPersonDetection && !hasPersonInObjects && !hasFaceDetection) {
+          // 로깅을 통한 디버깅 정보 제공
+          console.warn('🚨 Person detection details:', {
+            personDetectionCount: results.personDetection?.length || 0,
+            objectTrackingCount: results.objectTracking?.length || 0,
+            faceDetectionCount: results.faceDetection?.length || 0,
+            objectSample: results.objectTracking?.slice(0, 3).map((obj: any) => ({
+              entity: obj.entity?.description,
+              confidence: obj.confidence
+            })) || []
+          });
+          
           throw new Error(
-            '영상에서 사람을 감지할 수 없어 놀이 상호작용 분석이 불가능합니다. ' +
-            '다음을 확인해주세요:\n' +
-            '• 영상에 사람이 명확하게 보이는지 확인\n' +
-            '• 영상 화질이 충분한지 확인\n' +
-            '• 조명이 적절한지 확인\n' +
-            '• 카메라가 사람 전체를 촬영하고 있는지 확인'
+            '영상에서 사람을 충분히 감지할 수 없어 놀이 상호작용 분석이 제한됩니다.\n\n' +
+            '📹 더 나은 분석을 위해 다음을 확인해주세요:\n' +
+            '• 부모와 아이가 화면에 명확하게 보이는지 확인\n' +
+            '• 충분한 조명이 있는지 확인 (실내등을 켜거나 자연광 활용)\n' +
+            '• 사람이 화면의 30% 이상 차지하도록 카메라 거리 조절\n' +
+            '• 카메라 흔들림을 최소화하고 초점을 맞춘 영상으로 촬영\n\n' +
+            '💡 팁: 밝은 곳에서 안정된 카메라로 사람 중심의 구도로 촬영해주세요.'
           );
         }
 
+        // 성공 로그
+        console.log('✅ Person detection successful:', {
+          personDetection: hasPersonDetection,
+          personInObjects: hasPersonInObjects,
+          faceDetection: hasFaceDetection
+        });
+        
         // Person Detection이 실패했지만 Object Detection에서 person을 찾은 경우 로그
         if (!hasPersonDetection && hasPersonInObjects) {
           console.log('ℹ️ Person Detection API 실패, Object Detection에서 사람 감지 대체 사용');

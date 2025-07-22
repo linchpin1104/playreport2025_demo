@@ -217,6 +217,44 @@ export default function VideoUpload({
               최대 크기: {maxFileSize}MB
             </p>
           </div>
+          
+          {/* 🎬 영상 촬영 가이드라인 */}
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="text-sm font-semibold text-blue-800 mb-2">
+              📹 성공적인 분석을 위한 영상 촬영 가이드
+            </h3>
+            <div className="text-xs text-blue-700 grid grid-cols-1 md:grid-cols-2 gap-1">
+              <div className="space-y-1">
+                <div className="flex items-start gap-1">
+                  <span className="text-green-600 text-xs">✅</span>
+                  <span>부모와 아이가 명확히 보이게 촬영</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-green-600 text-xs">✅</span>
+                  <span>충분한 조명 (실내등 켜기)</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-green-600 text-xs">✅</span>
+                  <span>사람이 화면의 1/3 이상 차지</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-start gap-1">
+                  <span className="text-red-600 text-xs">❌</span>
+                  <span>너무 어둡거나 역광</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-red-600 text-xs">❌</span>
+                  <span>사람이 화면에서 잘리거나 작음</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <span className="text-red-600 text-xs">❌</span>
+                  <span>흔들리거나 흐린 영상</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <input
             id="video-file-input"
             type="file"
