@@ -31,11 +31,43 @@ export class VideoAnalyzer {
       keyFile: config.gcp.keyFile,
       keyFileExists: config.gcp.keyFile ? 'true' : 'false'
     });
+
+    // Vercel 환경변수에서 서비스 계정 JSON 확인
+    const serviceAccountJson = process.env.GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
     
-    this.client = new VideoIntelligenceServiceClient({
-      projectId: config.gcp.projectId,
-      keyFilename: config.gcp.keyFile,
-    });
+    let clientConfig: any;
+    
+    // Vercel 환경에서는 JSON 키를 직접 사용
+    if (serviceAccountJson) {
+      console.log('✅ Video Intelligence: Service Account JSON 발견, 직접 인증 사용');
+      try {
+        const credentials = JSON.parse(serviceAccountJson);
+        clientConfig = {
+          projectId: config.gcp.projectId,
+          credentials
+        };
+      } catch (jsonError) {
+        console.error('❌ Service Account JSON 파싱 실패:', jsonError);
+        throw new Error(`Service Account JSON 파싱 실패: ${jsonError instanceof Error ? jsonError.message : String(jsonError)}`);
+      }
+    } 
+    // 로컬 개발환경에서는 키 파일 사용
+    else if (config.gcp.keyFile && config.gcp.keyFile.length > 0) {
+      console.log('✅ Video Intelligence: 키 파일 경로 발견, 파일 인증 사용');
+      clientConfig = {
+        projectId: config.gcp.projectId,
+        keyFilename: config.gcp.keyFile
+      };
+    }
+    // Application Default Credentials 시도
+    else {
+      console.log('⚠️ Video Intelligence: 명시적 인증 정보 없음, Application Default Credentials 시도');
+      clientConfig = {
+        projectId: config.gcp.projectId
+      };
+    }
+    
+    this.client = new VideoIntelligenceServiceClient(clientConfig);
 
     this.features = [
       protos.google.cloud.videointelligence.v1.Feature.OBJECT_TRACKING,

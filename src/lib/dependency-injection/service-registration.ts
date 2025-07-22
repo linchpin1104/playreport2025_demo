@@ -55,10 +55,39 @@ export function configureServices(container: DIContainer): void {
       }
       
       const config = configManager.getValue().getAll();
-      return new VideoIntelligenceServiceClient({
-        projectId: config.gcp.projectId,
-        keyFilename: config.gcp.keyFile,
-      });
+      
+      // Vercel 환경변수에서 서비스 계정 JSON 확인
+      const serviceAccountJson = process.env.GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+      
+      let clientConfig: any;
+      
+      // Vercel 환경에서는 JSON 키를 직접 사용
+      if (serviceAccountJson) {
+        try {
+          const credentials = JSON.parse(serviceAccountJson);
+          clientConfig = {
+            projectId: config.gcp.projectId,
+            credentials
+          };
+        } catch (jsonError) {
+          throw new Error(`Service Account JSON 파싱 실패: ${jsonError instanceof Error ? jsonError.message : String(jsonError)}`);
+        }
+      } 
+      // 로컬 개발환경에서는 키 파일 사용
+      else if (config.gcp.keyFile && config.gcp.keyFile.length > 0) {
+        clientConfig = {
+          projectId: config.gcp.projectId,
+          keyFilename: config.gcp.keyFile
+        };
+      }
+      // Application Default Credentials 시도
+      else {
+        clientConfig = {
+          projectId: config.gcp.projectId
+        };
+      }
+      
+      return new VideoIntelligenceServiceClient(clientConfig);
     },
     [ServiceTokens.CONFIG_MANAGER],
     'singleton'

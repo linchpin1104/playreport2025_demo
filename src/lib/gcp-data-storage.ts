@@ -4,7 +4,6 @@ import {
   PlayAnalysisSession, 
   PlayEvaluationResult,
   IntegratedAnalysisResult,
-  UnifiedAnalysisResult,
   TemporalAnalysis,
   GCPInteractionPattern as InteractionPattern,
   UserInfo
@@ -190,12 +189,12 @@ export class GCPDataStorage {
         uploadedAt: now,
         analyzedAt: '',
         lastUpdated: now,
-        status: 'created'
+        status: 'uploaded'
       },
       paths: {
         rawDataPath: '',
-        processedDataPath: '',
-        reportPath: ''
+        videoUrl: '',
+        thumbnailUrl: ''
       },
       analysis: {
         participantCount: 0,
@@ -244,12 +243,12 @@ export class GCPDataStorage {
         uploadedAt: now,
         analyzedAt: '',
         lastUpdated: now,
-        status: 'created'
+        status: 'uploaded'
       },
       paths: {
         rawDataPath: '',
-        processedDataPath: '',
-        reportPath: ''
+        videoUrl: '',
+        thumbnailUrl: ''
       },
       analysis: {
         participantCount: 0,
@@ -336,9 +335,9 @@ export class GCPDataStorage {
   ): Promise<void> {
     try {
       const coreData = {
+        ...playCore,
         sessionId,
-        savedAt: new Date().toISOString(),
-        ...playCore
+        savedAt: new Date().toISOString()
       };
 
       // Firestore에 저장
@@ -355,9 +354,9 @@ export class GCPDataStorage {
       if (session) {
         session.paths.corePath = `gs://${this.bucketName}/cores/${sessionId}_core.json`;
         session.metadata.status = 'core_extracted';
-        session.analysis.participantCount = playCore.participants.count;
-        session.analysis.videoDuration = playCore.metadata.videoDuration || 0;
-        session.analysis.safetyScore = playCore.safetyMetrics.overallSafetyScore;
+        session.analysis.participantCount = playCore.summary?.participantCount || 0;
+        session.analysis.videoDuration = playCore.summary?.totalPlayTime || 0;
+        session.analysis.safetyScore = playCore.metrics?.safetyScore || 0;
 
         await this.saveSession(session);
       }
@@ -1332,12 +1331,10 @@ export class GCPDataStorage {
       if (session) {
         session.paths.integratedAnalysisPath = `gs://${this.bucketName}/integrated-analysis/${sessionId}_integrated.json`;
         session.metadata.status = 'integrated_analysis_completed';
-        session.integratedAnalysis = {
-          overallScore: analysisData.overallScore || analysisData.integratedAnalysis?.overallScore || 0,
-          interactionQuality: analysisData.interactionQuality || analysisData.integratedAnalysis?.interactionQuality || 0,
-          completedAt: new Date().toISOString(),
-          processingSteps: analysisData.processingSteps || 4
-        };
+        session.analysis.overallScore = analysisData.comprehensiveScores?.overallDevelopment || 0;
+        session.analysis.interactionQuality = analysisData.comprehensiveScores?.communicationQuality || 0;
+        session.analysis.completedAt = new Date().toISOString();
+        session.integratedAnalysis = analysisData;
 
         await this.saveSession(session);
       }
