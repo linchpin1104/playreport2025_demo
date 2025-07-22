@@ -16,16 +16,46 @@ function initializeStorage() {
   if (storage) return storage;
   
   try {
-    if (!configManager.isConfigAvailable('gcp.keyFile') || !configManager.isConfigAvailable('gcp.projectId')) {
-      console.warn('⚠️ GCP 설정이 없습니다. 로컬 개발 모드로 실행됩니다.');
+    if (!configManager.isConfigAvailable('gcp.projectId')) {
+      console.warn('⚠️ GCP Project ID가 없습니다. 환경변수 GOOGLE_CLOUD_PROJECT_ID를 설정하세요.');
       return null;
     }
 
-    storage = new Storage({
-      projectId: configManager.get('gcp.projectId'),
-      keyFilename: configManager.get('gcp.keyFile'),
-    });
+    const projectId = configManager.get('gcp.projectId');
+    const keyFile = configManager.get('gcp.keyFile');
+    const serviceAccountJson = process.env.GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON;
+
+    // Vercel 환경에서는 JSON 키를 직접 사용
+    if (serviceAccountJson) {
+      console.log('✅ Service Account JSON 발견, 직접 인증 사용');
+      try {
+        const credentials = JSON.parse(serviceAccountJson);
+        storage = new Storage({
+          projectId,
+          credentials
+        });
+      } catch (jsonError) {
+        console.error('❌ Service Account JSON 파싱 실패:', jsonError);
+        return null;
+      }
+    } 
+    // 로컬 개발환경에서는 키 파일 사용
+    else if (keyFile && keyFile.length > 0) {
+      console.log('✅ 키 파일 경로 발견, 파일 인증 사용');
+      storage = new Storage({
+        projectId,
+        keyFilename: keyFile,
+      });
+    }
+    // 둘 다 없으면 기본 인증 시도 (Application Default Credentials)
+    else {
+      console.log('⚠️ 명시적 인증 정보 없음, Application Default Credentials 시도');
+      storage = new Storage({
+        projectId
+      });
+    }
     
+    console.log(`✅ Google Cloud Storage 초기화 완료 (Project: ${projectId})`);
     return storage;
   } catch (error) {
     console.error('❌ Google Cloud Storage 초기화 실패:', error);
