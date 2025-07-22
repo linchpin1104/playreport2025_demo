@@ -274,67 +274,121 @@ export class VideoAnalysisService {
 
         const results = await this.videoAnalyzer.analyzeVideo(videoPath, analysisOptions);
         
-        // 🚨 핵심: 사람 감지 확인 (Person Detection 또는 Object Detection)
+        // 🔍 원본 데이터 구조 로깅 (디버깅용)
+        console.log('🔍 DEBUGGING: Full analysis results structure:', {
+          personDetectionExists: !!results.personDetection,
+          personDetectionLength: results.personDetection?.length || 0,
+          objectTrackingExists: !!results.objectTracking,
+          objectTrackingLength: results.objectTracking?.length || 0,
+          faceDetectionExists: !!results.faceDetection,
+          faceDetectionLength: results.faceDetection?.length || 0,
+          allKeys: Object.keys(results)
+        });
+
+        // Person Detection 상세 로그
+        if (results.personDetection && results.personDetection.length > 0) {
+          console.log('👤 Person Detection Details:', {
+            count: results.personDetection.length,
+            sample: results.personDetection.slice(0, 2).map((person: any, index: number) => ({
+              index,
+              confidence: person.confidence,
+              boundingBoxes: person.segments?.length || 0,
+              segments: person.segments?.slice(0, 2).map((seg: any) => ({
+                startTime: seg.segment?.startTimeOffset,
+                endTime: seg.segment?.endTimeOffset,
+                confidence: seg.confidence
+              })) || []
+            }))
+          });
+        }
+
+        // Object Tracking 상세 로그 (사람 관련만)
+        if (results.objectTracking && results.objectTracking.length > 0) {
+          const personObjects = results.objectTracking.filter((obj: any) => 
+            obj.entity?.description?.toLowerCase().includes('person') || 
+            obj.entity?.description?.toLowerCase().includes('human')
+          );
+          
+          console.log('🎯 Object Tracking Person Details:', {
+            totalObjects: results.objectTracking.length,
+            personObjects: personObjects.length,
+            personSample: personObjects.slice(0, 3).map((obj: any) => ({
+              entity: obj.entity?.description,
+              confidence: obj.confidence,
+              categoryId: obj.entity?.categoryId
+            })),
+            allEntities: results.objectTracking.slice(0, 10).map((obj: any) => obj.entity?.description)
+          });
+        }
+
+        // Face Detection 상세 로그
+        if (results.faceDetection && results.faceDetection.length > 0) {
+          console.log('😊 Face Detection Details:', {
+            count: results.faceDetection.length,
+            sample: results.faceDetection.slice(0, 2).map((face: any, index: number) => ({
+              index,
+              confidence: face.confidence || 'N/A',
+              segments: face.segments?.length || 0,
+              attributes: Object.keys(face.attributes || {})
+            }))
+          });
+        }
+
+        // 🚨 중요: 사람 감지 여부 확인하지만 블로킹하지 않음 (원본 데이터 저장을 위해)
         const hasPersonDetection = results.personDetection && results.personDetection.length > 0;
         const hasPersonInObjects = results.objectTracking && 
-          results.objectTracking.some((obj: any) => 
-            obj.entity?.description?.toLowerCase() === 'person' && obj.confidence > 0.3  // 0.5 → 0.3으로 완화
-          );
+          results.objectTracking.some((obj: any) => {
+            const description = obj.entity?.description?.toLowerCase() || '';
+            const confidence = obj.confidence || 0;
+            return (description.includes('person') || description.includes('human')) && confidence > 0.3;
+          });
         
-        // 얼굴 감지도 사람 존재의 간접 지표로 활용
         const hasFaceDetection = results.faceDetection && results.faceDetection.length > 0;
+        const personDetectionScore = [hasPersonDetection, hasPersonInObjects, hasFaceDetection].filter(Boolean).length;
 
-        // 더 관대한 사람 감지 기준
-        if (!hasPersonDetection && !hasPersonInObjects && !hasFaceDetection) {
-          // 로깅을 통한 디버깅 정보 제공
-          console.warn('🚨 Person detection details:', {
-            personDetectionCount: results.personDetection?.length || 0,
-            objectTrackingCount: results.objectTracking?.length || 0,
-            faceDetectionCount: results.faceDetection?.length || 0,
-            objectSample: results.objectTracking?.slice(0, 3).map((obj: any) => ({
-              entity: obj.entity?.description,
-              confidence: obj.confidence
-            })) || []
-          });
-          
-          throw new Error(
-            '영상에서 사람을 충분히 감지할 수 없어 놀이 상호작용 분석이 제한됩니다.\n\n' +
-            '📹 더 나은 분석을 위해 다음을 확인해주세요:\n' +
-            '• 부모와 아이가 화면에 명확하게 보이는지 확인\n' +
-            '• 충분한 조명이 있는지 확인 (실내등을 켜거나 자연광 활용)\n' +
-            '• 사람이 화면의 30% 이상 차지하도록 카메라 거리 조절\n' +
-            '• 카메라 흔들림을 최소화하고 초점을 맞춘 영상으로 촬영\n\n' +
-            '💡 팁: 밝은 곳에서 안정된 카메라로 사람 중심의 구도로 촬영해주세요.'
-          );
-        }
-
-        // 성공 로그
-        console.log('✅ Person detection successful:', {
-          personDetection: hasPersonDetection,
-          personInObjects: hasPersonInObjects,
-          faceDetection: hasFaceDetection
+        console.log('🚨 Person Detection Summary (NON-BLOCKING):', {
+          hasPersonDetection,
+          hasPersonInObjects, 
+          hasFaceDetection,
+          totalPersonIndicators: personDetectionScore
         });
-        
-        // Person Detection이 실패했지만 Object Detection에서 person을 찾은 경우 로그
-        if (!hasPersonDetection && hasPersonInObjects) {
-          console.log('ℹ️ Person Detection API 실패, Object Detection에서 사람 감지 대체 사용');
+
+        // 사람 감지가 약하면 경고만 표시 (블로킹하지 않음)
+        if (personDetectionScore === 0) {
+          console.warn('⚠️ LOW PERSON DETECTION - But continuing with analysis. Raw data will be saved for debugging.');
           
-          // Object Detection 결과를 Person Detection 형태로 변환
-          const personObjects = results.objectTracking.filter((obj: any) => 
-            obj.entity?.description?.toLowerCase() === 'person' && obj.confidence > 0.5
-          );
-          
-          console.log(`👥 Object Detection에서 감지된 사람: ${personObjects.length}명`);
-          personObjects.forEach((person: any, index: number) => {
-            console.log(`👤 Person ${index + 1}: 신뢰도 ${(person.confidence * 100).toFixed(1)}%, 프레임 ${person.frames?.length || 0}개`);
+          // 상세 디버그 정보 (에러가 아닌 경고로)
+          console.warn('🔍 Complete Debug Info for Low Person Detection:', {
+            analysisResultsKeys: Object.keys(results),
+            personDetection: {
+              exists: !!results.personDetection,
+              length: results.personDetection?.length || 0,
+              sample: results.personDetection || null
+            },
+            objectTracking: {
+              exists: !!results.objectTracking,
+              length: results.objectTracking?.length || 0,
+              entities: results.objectTracking?.map((obj: any) => ({
+                description: obj.entity?.description,
+                confidence: obj.confidence
+              })).slice(0, 10) || []
+            },
+            faceDetection: {
+              exists: !!results.faceDetection,
+              length: results.faceDetection?.length || 0,
+              sample: results.faceDetection?.slice(0, 1) || null
+            }
+          });
+        } else {
+          console.log('✅ Person detection successful:', {
+            personDetection: hasPersonDetection,
+            personInObjects: hasPersonInObjects,
+            faceDetection: hasFaceDetection,
+            score: personDetectionScore
           });
         }
-        
-        // 얼굴이나 음성 전사도 확인 (선택사항이지만 경고)
-        if (results.faceDetection.length === 0 && results.speechTranscription.length === 0) {
-          this.logger.warn('⚠️ 얼굴과 음성이 모두 감지되지 않았습니다. 분석 품질이 제한적일 수 있습니다.');
-        }
 
+        // 원본 데이터는 사람 감지 여부와 관계없이 항상 반환 
         return results;
       },
       {
