@@ -171,11 +171,7 @@ export async function POST(request: NextRequest) {
         action: 'write',
         expires: Date.now() + 60 * 60 * 1000, // 1시간
         contentType: contentType,
-        extensionHeaders: {
-          'x-goog-meta-session-id': session.sessionId,
-          'x-goog-meta-original-name': fileName,
-          'x-goog-meta-user-info': JSON.stringify(userInfo),
-        },
+        // extensionHeaders 제거 - 클라이언트에서 메타데이터 헤더를 보내지 않으므로
       });
       
       signedUrl = url;
