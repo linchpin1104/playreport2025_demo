@@ -88,39 +88,106 @@ export class GCPDataStorage {
   private readonly SESSION_INDEX_DOC = 'session-index';
 
   constructor() {
-    // Firestore 초기화 (향상된 타임아웃 설정)
-    this.firestore = new Firestore({
-      projectId: config.googleCloud.projectId,
-      keyFilename: config.googleCloud.keyFile,
-      // undefined 값 무시 설정 (중요!)
-      ignoreUndefinedProperties: true,
-      // 타임아웃 설정 추가
-      settings: {
-        maxRetries: 3,
-        // 기본 타임아웃을 30초로 설정
-        timeout: 30000,
-        // 빠른 실패를 위한 설정
-        keepAlive: true,
-        // 연결 풀 설정
-        maxIdleChannels: 10,
-        // 재시도 설정
-        retryOptions: {
-          maxRetries: 3,
-          initialRetryDelayMillis: 100,
-          maxRetryDelayMillis: 30000
-        }
-      }
-    });
+    const serviceAccountJson = process.env.GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+    
+    // Vercel 환경에서는 JSON 키를 직접 사용
+    if (serviceAccountJson) {
+      console.log('✅ Service Account JSON 발견, Firestore 직접 인증 사용');
+      try {
+        const credentials = JSON.parse(serviceAccountJson);
+        
+        // Firestore 초기화 (JSON 키 사용)
+        this.firestore = new Firestore({
+          projectId: config.googleCloud.projectId,
+          credentials,
+          ignoreUndefinedProperties: true,
+          settings: {
+            maxRetries: 3,
+            timeout: 30000,
+            keepAlive: true,
+            maxIdleChannels: 10,
+            retryOptions: {
+              maxRetries: 3,
+              initialRetryDelayMillis: 100,
+              maxRetryDelayMillis: 30000
+            }
+          }
+        });
 
-    // Cloud Storage 초기화
-    this.storage = new Storage({
-      projectId: config.googleCloud.projectId,
-      keyFilename: config.googleCloud.keyFile,
-      // 타임아웃 설정 추가
-      timeout: 120000 // 2분 타임아웃
-    });
+        // Cloud Storage 초기화 (JSON 키 사용)
+        this.storage = new Storage({
+          projectId: config.googleCloud.projectId,
+          credentials,
+          timeout: 120000
+        });
+      } catch (jsonError) {
+        console.error('❌ Service Account JSON 파싱 실패:', jsonError);
+        throw new Error(`Service Account JSON 파싱 실패: ${jsonError instanceof Error ? jsonError.message : String(jsonError)}`);
+      }
+    } 
+    // 로컬 개발환경에서는 키 파일 사용
+    else if (config.googleCloud.keyFile && config.googleCloud.keyFile.length > 0) {
+      console.log('✅ 키 파일 경로 발견, Firestore 파일 인증 사용');
+      
+      // Firestore 초기화 (키 파일 사용)
+      this.firestore = new Firestore({
+        projectId: config.googleCloud.projectId,
+        keyFilename: config.googleCloud.keyFile,
+        ignoreUndefinedProperties: true,
+        settings: {
+          maxRetries: 3,
+          timeout: 30000,
+          keepAlive: true,
+          maxIdleChannels: 10,
+          retryOptions: {
+            maxRetries: 3,
+            initialRetryDelayMillis: 100,
+            maxRetryDelayMillis: 30000
+          }
+        }
+      });
+
+      // Cloud Storage 초기화 (키 파일 사용)
+      this.storage = new Storage({
+        projectId: config.googleCloud.projectId,
+        keyFilename: config.googleCloud.keyFile,
+        timeout: 120000
+      });
+    }
+    // Application Default Credentials 시도
+    else {
+      console.log('⚠️ 명시적 인증 정보 없음, Application Default Credentials 시도');
+      
+      // Firestore 초기화 (기본 인증)
+      this.firestore = new Firestore({
+        projectId: config.googleCloud.projectId,
+        ignoreUndefinedProperties: true,
+        settings: {
+          maxRetries: 3,
+          timeout: 30000,
+          keepAlive: true,
+          maxIdleChannels: 10,
+          retryOptions: {
+            maxRetries: 3,
+            initialRetryDelayMillis: 100,
+            maxRetryDelayMillis: 30000
+          }
+        }
+      });
+
+      // Cloud Storage 초기화 (기본 인증)
+      this.storage = new Storage({
+        projectId: config.googleCloud.projectId,
+        timeout: 120000
+      });
+    }
 
     this.bucketName = config.googleCloud.bucketName;
+    
+    console.log(`✅ GCPDataStorage 초기화 완료:`);
+    console.log(`   - Project: ${config.googleCloud.projectId}`);
+    console.log(`   - Bucket: ${this.bucketName}`);
+    console.log(`   - Auth: ${serviceAccountJson ? 'JSON Key' : config.googleCloud.keyFile ? 'Key File' : 'Default'}`);
   }
 
   /**

@@ -23,7 +23,7 @@ function initializeStorage() {
 
     const projectId = configManager.get('gcp.projectId');
     const keyFile = configManager.get('gcp.keyFile');
-    const serviceAccountJson = process.env.GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON;
+    const serviceAccountJson = process.env.GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
 
     // Vercel 환경에서는 JSON 키를 직접 사용
     if (serviceAccountJson) {
