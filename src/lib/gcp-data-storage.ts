@@ -1,77 +1,57 @@
 import { Firestore } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
-import config from '@/lib/config';
-import { PlayAnalysisCore } from '@/lib/play-analysis-extractor';
-import { PlayAnalysisSession , UserInfo } from '@/types';
+import { 
+  PlaySession, 
+  PlayCore, 
+  PlayEvaluationResult,
+  IntegratedAnalysisResult,
+  UnifiedAnalysisResult,
+  TemporalAnalysis,
+  InteractionPattern
+} from '@/types';
+import { config } from '@/lib/config';
 
-/**
- * Google Cloud Platform 기반 데이터 저장 시스템
- * Firestore를 메인 데이터베이스로 하고, Cloud Storage를 JSON 백업용으로 사용
- */
-
-export interface PlayEvaluationResult {
-  evaluationId: string;
-  sessionId: string;
-  evaluatedAt: string;
-  scores: {
-    interactionQuality: number;
-    emotionalConnection: number;
-    developmentalSupport: number;
-    playEnvironment: number;
-    overall: number;
-  };
-  insights: {
-    strengths: string[];
-    improvements: string[];
-    recommendations: string[];
-  };
-  detailedAnalysis: {
-    participantAnalysis: ParticipantAnalysis[];
-    temporalAnalysis: TemporalAnalysis;
-    interactionPatterns: InteractionPattern[];
-  };
+// 세션 데이터 타입들
+export interface PlaySessionMetadata {
+  createdAt: string;
+  uploadedAt: string;
+  status: 'created' | 'uploaded' | 'analyzed' | 'completed' | 'error' | 'evaluation_completed' | 'integrated_analysis_completed';
+  originalFileName: string;
+  fileSize: number;
+  duration?: number;
+  userId?: string;
+  processedAt?: string;
+  analysisType: 'comprehensive' | 'basic' | 'detailed';
 }
 
-export interface ParticipantAnalysis {
-  participantId: string;
-  role: 'parent' | 'child' | 'unknown';
-  engagementLevel: number;
-  emotionalState: number;
-  activityLevel: number;
-  behaviors: {
-    positive: string[];
-    concerning: string[];
-    neutral: string[];
-  };
+// 사용자 정보 타입 (기본)
+export interface BaseUserInfo {
+  childAge: number;
+  childName: string;
+  childGender: '남자' | '여자';
+  caregiverName: string;
+  phoneNumber: string;
+  caregiverType: '엄마' | '아빠' | '조부모' | '기타';
+  additionalNotes?: string;
+  submittedAt: string;
 }
 
-export interface TemporalAnalysis {
-  segments: {
-    startTime: number;
-    endTime: number;
-    quality: number;
-    primaryActivity: string;
-    notes: string;
-  }[];
-  peakPeriods: {
-    startTime: number;
-    endTime: number;
-    intensity: number;
-    reason: string;
-  }[];
-  trends: {
-    engagement: 'increasing' | 'decreasing' | 'stable';
-    emotion: 'positive' | 'negative' | 'neutral';
-    activity: 'active' | 'passive' | 'mixed';
-  };
+// 확장된 사용자 정보 타입 (선택적 필드들 포함)
+export interface ExtendedUserInfo extends BaseUserInfo {
+  relationshipWithChild?: string;
+  previousPlaySessions?: number;
+  specialConcerns?: string[];
+  developmentalStage?: string;
 }
 
-export interface InteractionPattern {
-  patternType: 'cooperative' | 'competitive' | 'parallel' | 'guided' | 'independent';
-  frequency: number;
-  duration: number;
-  quality: number;
-  examples: string[];
+// 경로 정보 타입  
+export interface PlaySessionPaths {
+  rawDataPath?: string;
+  processedDataPath?: string;
+  analysisPath?: string;
+  reportPath?: string;
+  evaluationPath?: string;
+  integratedAnalysisPath?: string;
 }
 
 export class GCPDataStorage {
@@ -197,11 +177,11 @@ export class GCPDataStorage {
     fileName: string,
     originalName: string,
     fileSize: number
-  ): Promise<PlayAnalysisSession> {
+  ): Promise<PlaySession> {
     const sessionId = this.generateSessionId();
     const now = new Date().toISOString();
 
-    const session: PlayAnalysisSession = {
+    const session: PlaySession = {
       sessionId,
       metadata: {
         fileName,
@@ -250,12 +230,12 @@ export class GCPDataStorage {
     fileName: string,
     originalName: string,
     fileSize: number,
-    userInfo: UserInfo
-  ): Promise<PlayAnalysisSession> {
+    userInfo: BaseUserInfo
+  ): Promise<PlaySession> {
     const sessionId = this.generateSessionId();
     const now = new Date().toISOString();
 
-    const session: PlayAnalysisSession = {
+    const session: PlaySession = {
       sessionId,
       userInfo,
       metadata: {
@@ -303,7 +283,7 @@ export class GCPDataStorage {
   /**
    * 📄 세션 정보 조회
    */
-  async getSession(sessionId: string): Promise<PlayAnalysisSession | null> {
+  async getSession(sessionId: string): Promise<PlaySession | null> {
     try {
       const doc = await this.firestore
         .collection(this.SESSIONS_COLLECTION)
@@ -314,7 +294,7 @@ export class GCPDataStorage {
         return null;
       }
 
-      return doc.data() as PlayAnalysisSession;
+      return doc.data() as PlaySession;
     } catch (error) {
       console.error(`❌ Error getting session ${sessionId}:`, error);
       return null;
@@ -324,7 +304,7 @@ export class GCPDataStorage {
   /**
    * 💾 세션 정보 저장/업데이트
    */
-  async saveSession(session: PlayAnalysisSession): Promise<void> {
+  async saveSession(session: PlaySession): Promise<void> {
     try {
       session.metadata.lastUpdated = new Date().toISOString();
 
@@ -352,7 +332,7 @@ export class GCPDataStorage {
    */
   async savePlayCore(
     sessionId: string,
-    playCore: PlayAnalysisCore
+    playCore: PlayCore
   ): Promise<void> {
     try {
       const coreData = {
@@ -655,10 +635,10 @@ export class GCPDataStorage {
 
         // timestampedObjects 정리
         if (Array.isArray(track.timestampedObjects)) {
-          const cleanedObjects = track.timestampedObjects.map(obj => {
+          const cleanedObjects = track.timestampedObjects.map((obj: any) => {
             if (!obj || typeof obj !== 'object') {return null;}
             
-            const cleanedObj: any = {};
+            const cleanedObj: { [key: string]: any } = {};
             
             // timeOffset 정리
             if (obj.timeOffset !== undefined) {
@@ -677,11 +657,11 @@ export class GCPDataStorage {
             
             // attributes 정리
             if (Array.isArray(obj.attributes)) {
-              cleanedObj.attributes = obj.attributes.filter(attr => attr !== null && attr !== undefined);
+              cleanedObj.attributes = obj.attributes.filter((attr: any) => attr !== null && attr !== undefined);
             }
             
             return Object.keys(cleanedObj).length > 0 ? cleanedObj : null;
-          }).filter(obj => obj !== null);
+          }).filter((obj: any) => obj !== null);
           
           if (cleanedObjects.length > 0) {
             cleanedTrack.timestampedObjects = cleanedObjects;
@@ -689,7 +669,7 @@ export class GCPDataStorage {
         }
 
         return Object.keys(cleanedTrack).length > 0 ? cleanedTrack : null;
-      }).filter(track => track !== null);
+      }).filter((track: any) => track !== null);
       
       if (cleanedTracks.length > 0) {
         cleaned.tracks = cleanedTracks;
@@ -702,7 +682,7 @@ export class GCPDataStorage {
   /**
    * 🧹 BoundingBox 데이터 정리
    */
-  private cleanBoundingBox(bbox: any): any {
+  private cleanBoundingBox(bbox: any): { left: number; top: number; right: number; bottom: number } {
     if (!bbox || typeof bbox !== 'object') {
       return {
         left: 0,
@@ -822,7 +802,7 @@ export class GCPDataStorage {
   /**
    * 🔍 세션 검색
    */
-  async searchSessions(query: string): Promise<PlayAnalysisSession[]> {
+  async searchSessions(query: string): Promise<PlaySession[]> {
     try {
       // Firestore는 full-text search가 제한적이므로 클라이언트 측에서 필터링
       const allSessions = await this.getAllSessions();
@@ -842,7 +822,7 @@ export class GCPDataStorage {
   /**
    * 🎯 핵심 분석 데이터 조회
    */
-  async getPlayCore(sessionId: string): Promise<PlayAnalysisCore | null> {
+  async getPlayCore(sessionId: string): Promise<PlayCore | null> {
     try {
       const doc = await this.firestore
         .collection(this.CORES_COLLECTION)
@@ -860,7 +840,7 @@ export class GCPDataStorage {
       
       // sessionId와 savedAt 제거하고 PlayAnalysisCore 반환
       const { sessionId: _, savedAt: __, ...playCore } = data;
-      return playCore as PlayAnalysisCore;
+      return playCore as PlayCore;
     } catch (error) {
       console.error(`❌ Error getting play core for ${sessionId}:`, error);
       return null;
@@ -1035,7 +1015,7 @@ export class GCPDataStorage {
   /**
    * 세션 인덱스 업데이트
    */
-  private async updateSessionIndex(session: PlayAnalysisSession): Promise<void> {
+  private async updateSessionIndex(session: PlaySession): Promise<void> {
     try {
       const indexRef = this.firestore
         .collection('metadata')
@@ -1045,7 +1025,7 @@ export class GCPDataStorage {
         const indexDoc = await transaction.get(indexRef);
         
         let indexData = {
-          sessions: [] as PlayAnalysisSession[],
+          sessions: [] as PlaySession[],
           lastUpdated: new Date().toISOString(),
           totalSessions: 0
         };
@@ -1226,7 +1206,7 @@ export class GCPDataStorage {
   /**
    * 📊 세션 업데이트
    */
-  async updateSession(sessionId: string, updateData: Partial<PlayAnalysisSession>): Promise<PlayAnalysisSession> {
+  async updateSession(sessionId: string, updateData: Partial<PlaySession>): Promise<PlaySession> {
     try {
       const existingSession = await this.getSession(sessionId);
       if (!existingSession) {
@@ -1259,7 +1239,7 @@ export class GCPDataStorage {
     offset?: number;
     status?: string;
     search?: string;
-  }): Promise<PlayAnalysisSession[]> {
+  }): Promise<PlaySession[]> {
     try {
       let query: any = this.firestore.collection(this.SESSIONS_COLLECTION);
 
@@ -1280,10 +1260,10 @@ export class GCPDataStorage {
       }
 
       const snapshot = await query.get();
-      const sessions: PlayAnalysisSession[] = [];
+      const sessions: PlaySession[] = [];
 
       snapshot.forEach((doc: any) => {
-        const data = doc.data() as PlayAnalysisSession;
+        const data = doc.data() as PlaySession;
         
         // 검색 필터링 (클라이언트 사이드)
         if (options?.search) {
