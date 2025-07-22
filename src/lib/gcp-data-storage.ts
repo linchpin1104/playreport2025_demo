@@ -875,29 +875,59 @@ export class GCPDataStorage {
   }
 
   /**
-   * 🗑️ 세션 삭제
+   * 🗑️ 세션 완전 삭제 (모든 관련 데이터 포함)
    */
   async deleteSession(sessionId: string): Promise<void> {
     try {
+      // 1. 먼저 세션 정보를 조회해서 파일 경로들 확인
+      const session = await this.getSession(sessionId);
+      
+      console.log(`🗑️ 세션 삭제 시작: ${sessionId}`);
+      
+      // 2. Firestore에서 모든 관련 문서 삭제
       const batch = this.firestore.batch();
-
-      // 모든 관련 문서 삭제
       batch.delete(this.firestore.collection(this.SESSIONS_COLLECTION).doc(sessionId));
       batch.delete(this.firestore.collection(this.CORES_COLLECTION).doc(sessionId));
       batch.delete(this.firestore.collection(this.EVALUATIONS_COLLECTION).doc(sessionId));
       batch.delete(this.firestore.collection(this.VOICE_ANALYSIS_COLLECTION).doc(sessionId));
-
+      batch.delete(this.firestore.collection('integrated-analysis').doc(sessionId));
+      batch.delete(this.firestore.collection(this.REPORTS_COLLECTION).doc(sessionId));
+      
       await batch.commit();
+      console.log(`   ✅ Firestore 문서들 삭제 완료`);
 
-      // Cloud Storage에서도 삭제
-      await this.deleteFromCloudStorage(`sessions/${sessionId}.json`);
-      await this.deleteFromCloudStorage(`cores/${sessionId}_core.json`);
-      await this.deleteFromCloudStorage(`evaluations/${sessionId}_evaluation.json`);
-      await this.deleteFromCloudStorage(`voice-analysis/${sessionId}_voice.json`);
+      // 3. Cloud Storage에서 모든 관련 파일 삭제
+      const filesToDelete = [
+        // JSON 백업 파일들
+        `sessions/${sessionId}.json`,
+        `cores/${sessionId}_core.json`, 
+        `evaluations/${sessionId}_evaluation.json`,
+        `voice-analysis/${sessionId}_voice.json`,
+        `integrated-analysis/${sessionId}_integrated.json`,
+        `reports/${sessionId}_report.json`,
+        `backups/sessions/${sessionId}.json`,
+        
+        // 세션에서 참조하는 실제 비디오 파일들
+        ...(session ? this.extractVideoFilePaths(session) : [])
+      ];
 
-      console.log(`✅ Session deleted from Firestore: ${sessionId}`);
+      let deletedFiles = 0;
+      for (const filePath of filesToDelete) {
+        try {
+          await this.deleteFromCloudStorage(filePath);
+          deletedFiles++;
+          console.log(`   ✅ 파일 삭제: ${filePath}`);
+        } catch (error) {
+          // 파일이 없는 경우는 무시 (이미 삭제됨)
+          if (error instanceof Error && !error.message.includes('No such object')) {
+            console.warn(`   ⚠️ 파일 삭제 실패 (무시): ${filePath} - ${error.message}`);
+          }
+        }
+      }
+
+      console.log(`✅ 세션 삭제 완료: ${sessionId} (${deletedFiles}개 파일 삭제)`);
     } catch (error) {
-      console.error(`❌ Error deleting session ${sessionId}:`, error);
+      console.error(`❌ 세션 삭제 오류 ${sessionId}:`, error);
       throw error;
     }
   }
@@ -1366,5 +1396,37 @@ export class GCPDataStorage {
       console.error(`❌ Error getting integrated analysis for ${sessionId}:`, error);
       return null;
     }
+  }
+
+  /**
+   * 세션에서 비디오 파일 경로들 추출
+   */
+  private extractVideoFilePaths(session: PlayAnalysisSession): string[] {
+    const paths: string[] = [];
+    
+    // rawDataPath에서 비디오 파일 경로 추출 (gs://bucket-name/path 형식)
+    if (session.paths.rawDataPath) {
+      const gsPath = session.paths.rawDataPath;
+      if (gsPath.startsWith('gs://')) {
+        const pathWithoutBucket = gsPath.split('/').slice(3).join('/'); // gs://bucket-name/ 제거
+        paths.push(pathWithoutBucket);
+      }
+    }
+
+    // 기타 파일 경로들도 확인
+    if (session.paths.videoUrl && session.paths.videoUrl.includes('/videos/')) {
+      const videoFileName = session.paths.videoUrl.split('/').pop();
+      if (videoFileName) {
+        paths.push(`videos/${videoFileName}`);
+      }
+    }
+
+    // 파일명에서 비디오 파일 추정 (UUID 패턴의 파일들)
+    const fileName = session.metadata.fileName;
+    if (fileName && fileName.includes('.')) {
+      paths.push(`videos/${fileName}`);
+    }
+
+    return paths.filter(path => path.length > 0);
   }
 } 
