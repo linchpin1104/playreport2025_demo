@@ -350,26 +350,78 @@ export class UnifiedAnalysisEngine {
   }
   
   /**
-   * ⏱️ 동영상 길이 추정
+   * 🎯 비디오 길이 추정 (여러 데이터 소스 활용)
    */
   private estimateDuration(videoResults: VideoIntelligenceResults): number {
-    // speechTranscription의 마지막 타임스탬프를 기준으로 추정
-    const speechData = videoResults.speechTranscription || [];
-    let maxTime = 300; // 기본 5분
+    let maxDuration = 0;
     
+    // 1. Shot changes에서 길이 추정 (가장 정확)
+    if (videoResults.shotChanges && videoResults.shotChanges.length > 0) {
+      const lastShot = videoResults.shotChanges[videoResults.shotChanges.length - 1];
+      if (lastShot.endTimeOffset) {
+        maxDuration = Math.max(maxDuration, parseFloat(lastShot.endTimeOffset.toString()));
+      }
+    }
+    
+    // 2. Object tracking에서 길이 추정
+    if (videoResults.objectTracking) {
+      videoResults.objectTracking.forEach((obj: any) => {
+        obj.frames?.forEach((frame: any) => {
+          if (frame.timeOffset) {
+            const timeSeconds = parseFloat(frame.timeOffset.seconds ?? '0') + 
+                               parseFloat(frame.timeOffset.nanos ?? '0') / 1e9;
+            maxDuration = Math.max(maxDuration, timeSeconds);
+          }
+        });
+      });
+    }
+    
+    // 3. Speech transcription에서 길이 추정
+    const speechData = videoResults.speechTranscription || [];
     speechData.forEach((segment: any) => {
       segment.alternatives?.forEach((alt: any) => {
-        if (alt.words) {
-          alt.words?.forEach((word: { endTime?: { seconds?: string; nanos?: string } }) => {
-            if (word.endTime) {
-              const endTime = parseFloat(word.endTime.seconds ?? '0') + parseFloat(word.endTime.nanos ?? '0') / 1e9;
-              maxTime = Math.max(maxTime, endTime);
-            }
-          });
-        }
+        alt.words?.forEach((word: any) => {
+          if (word.endTime) {
+            const endTime = parseFloat(word.endTime.seconds ?? '0') + 
+                           parseFloat(word.endTime.nanos ?? '0') / 1e9;
+            maxDuration = Math.max(maxDuration, endTime);
+          }
+        });
       });
     });
     
-    return Math.round(maxTime);
+    // 4. Face detection에서 길이 추정
+    if (videoResults.faceDetection) {
+      videoResults.faceDetection.forEach((face: any) => {
+        face.tracks?.forEach((track: any) => {
+          if (track.segment?.endTimeOffset) {
+            const endTime = parseFloat(track.segment.endTimeOffset.seconds ?? '0') + 
+                           parseFloat(track.segment.endTimeOffset.nanos ?? '0') / 1e9;
+            maxDuration = Math.max(maxDuration, endTime);
+          }
+        });
+      });
+    }
+    
+    // 5. Person detection에서 길이 추정
+    if (videoResults.personDetection) {
+      videoResults.personDetection.forEach((person: any) => {
+        person.tracks?.forEach((track: any) => {
+          if (track.segment?.endTimeOffset) {
+            const endTime = parseFloat(track.segment.endTimeOffset.seconds ?? '0') + 
+                           parseFloat(track.segment.endTimeOffset.nanos ?? '0') / 1e9;
+            maxDuration = Math.max(maxDuration, endTime);
+          }
+        });
+      });
+    }
+    
+    // 최종 길이 결정 (최소 30초, 최대 600초 제한)
+    const finalDuration = maxDuration > 0 ? maxDuration : 60; // 기본 1분
+    const clampedDuration = Math.max(30, Math.min(600, finalDuration));
+    
+    logger.info(`🎬 Video duration estimated: ${clampedDuration}s (from ${maxDuration}s)`);
+    
+    return Math.round(clampedDuration);
   }
 } 

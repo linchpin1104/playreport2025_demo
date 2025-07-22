@@ -244,10 +244,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<Comprehen
       const unifiedAnalysisPath = `analysis/${sessionId}/unified_analysis.json`;
       await gcpStorage.saveToCloudStorage(unifiedAnalysisPath, unifiedResult);
       
-      // 세션 업데이트
+      // 비디오 메타데이터 추출 (VideoAnalysisService에서 이미 분석됨)
+      const videoDuration = unifiedResult.videoAnalysis?.duration || 0;
+      const participantCount = analysisResults.personDetection?.length > 0 ? 2 : 0; // 부모-자녀 놀이이므로 기본 2명
+      const safetyScore = unifiedResult.integratedAnalysis?.playPatternQuality || 85;
+      
+      // 세션 analysis 필드 완전 업데이트
       sessionData.paths.integratedAnalysisPath = unifiedAnalysisPath;
       sessionData.analysis = {
-        ...sessionData.analysis,
+        participantCount,           // 참여자 수
+        videoDuration,             // 비디오 길이 (초)
+        safetyScore,               // 안전 점수
         overallScore: unifiedResult.overallScore,
         interactionQuality: unifiedResult.interactionQuality,
         keyInsights: unifiedResult.keyFindings.slice(0, 3),

@@ -139,10 +139,9 @@ export async function POST(request: NextRequest) {
     try {
       const gcpStorage = new GCPDataStorage();
       session = await gcpStorage.createSessionWithUserInfo(
-        uniqueFileName,
-        fileName,
-        fileSize,
-        userInfo
+        fileName,        // originalName (실제 파일명)
+        fileSize,        // fileSize (숫자)
+        userInfo         // userInfo (객체)
       );
       console.log(`✅ 세션 생성 성공: ${session.sessionId}`);
     } catch (sessionError) {
