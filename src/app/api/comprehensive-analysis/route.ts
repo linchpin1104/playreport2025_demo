@@ -247,14 +247,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<Comprehen
       // 비디오 메타데이터 추출 (VideoAnalysisService에서 이미 분석됨)
       const videoDuration = unifiedResult.videoAnalysis?.duration || 0;
       const participantCount = analysisResults.personDetection?.length > 0 ? 2 : 0; // 부모-자녀 놀이이므로 기본 2명
-      const safetyScore = unifiedResult.integratedAnalysis?.playPatternQuality || 85;
+      
+      // 안전 점수: 실제 분석 데이터 기반 계산
+      const safetyScore = Math.round(
+        (unifiedResult.integratedAnalysis?.playPatternQuality || 0) * 0.6 +  // 놀이 패턴 품질 60%
+        (unifiedResult.videoAnalysis?.personDetected ? 25 : 0) +              // 사람 감지 25점
+        (videoDuration > 60 ? 15 : 5)                                         // 충분한 길이 15점
+      );
       
       // 세션 analysis 필드 완전 업데이트
       sessionData.paths.integratedAnalysisPath = unifiedAnalysisPath;
       sessionData.analysis = {
         participantCount,           // 참여자 수
         videoDuration,             // 비디오 길이 (초)
-        safetyScore,               // 안전 점수
+        safetyScore,               // 실제 계산된 안전 점수
         overallScore: unifiedResult.overallScore,
         interactionQuality: unifiedResult.interactionQuality,
         keyInsights: unifiedResult.keyFindings.slice(0, 3),

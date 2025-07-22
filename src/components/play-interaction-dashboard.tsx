@@ -38,6 +38,8 @@ interface SessionData {
     safetyScore: number;
     completedAt: string;
     keyInsights?: string[];
+    participantCount?: number; // Added for development score calculation
+    videoDuration?: number; // Added for development score calculation
   };
 }
 
@@ -113,11 +115,23 @@ export default function PlayInteractionDashboard({ sessionId }: PlayInteractionD
   const videoDuration = getVideoDuration();
   const analysisDate = sessionData ? new Date(sessionData.analysis?.completedAt || sessionData.metadata.uploadedAt).toLocaleDateString('ko-KR') : '';
 
-  // 실제 점수들 (없으면 0)
+  // 실제 분석 데이터 기반 점수 계산
   const scores = {
+    // 상호작용 질 점수: 실제 분석 데이터 사용
     interaction: hasValidAnalysis ? sessionData.analysis.interactionQuality : 0,
-    development: hasValidAnalysis ? Math.round(sessionData.analysis.overallScore * 0.9) : 0,
-    environment: hasValidAnalysis ? Math.round(sessionData.analysis.overallScore * 1.1) : 0
+    
+    // 발달 지원 수준: 참여자 수, 영상 길이, 안전성을 종합 평가
+    development: hasValidAnalysis ? Math.round(
+      (sessionData.analysis.overallScore * 0.6) +           // 전체 점수 60%
+      (sessionData.analysis.participantCount > 1 ? 20 : 0) +  // 참여자 상호작용 20점
+      (sessionData.analysis.videoDuration > 60 ? 20 : 10)     // 충분한 길이 20점
+    ) : 0,
+    
+    // 놀이 환경 최적화: 안전성과 상호작용 품질 기반
+    environment: hasValidAnalysis ? Math.round(
+      (sessionData.analysis.safetyScore * 0.7) +              // 안전성 70%
+      (sessionData.analysis.interactionQuality * 0.3)        // 상호작용 품질 30%
+    ) : 0
   };
 
   return (
