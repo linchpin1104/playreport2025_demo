@@ -83,8 +83,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<Comprehen
     // 파라미터 파싱
     const { sessionId } = body;
     
-    // ⚠️ Vercel 임시 수정: 백그라운드 처리가 작동하지 않으므로 동기 처리로 강제
-    const isAsync = false; // body.async !== false; // 기본적으로 비동기 처리
+    // 🔄 Vercel 해결책: Status API를 통한 스마트 백그라운드 처리
+    // 클라이언트가 지속적으로 status를 확인하므로, status API에서 단계별 분석 수행
+    const isAsync = body.async !== false; // 기본적으로 비동기 처리
     
     logger.info(`🎯 Analysis request: ${sessionId}, async: ${isAsync}`);
     
@@ -207,7 +208,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Comprehen
 /**
  * 🔄 백그라운드 분석 수행 (타임아웃 및 에러 핸들링 개선)
  */
-async function performBackgroundAnalysis(sessionId: string): Promise<void> {
+export async function performBackgroundAnalysis(sessionId: string): Promise<void> {
   const logger = new Logger(`BackgroundAnalysis-${sessionId}`);
   
   // 타임아웃 설정 (15분)

@@ -497,6 +497,42 @@ function AnalysisPageContent() {
           </Card>
         )}
 
+        {/* 분석 완료 시 결과보기 버튼 */}
+        {analysisResult?.status === 'completed' && !isAnalyzing && (
+          <Card className="mt-8 border-green-500 bg-green-50">
+            <CardContent className="p-6 text-center">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-green-800 mb-2">🎉 분석이 완료되었습니다!</h3>
+                  <p className="text-green-700 mb-4">
+                    부모-자녀 놀이 상호작용 분석 결과를 확인해보세요.
+                  </p>
+                </div>
+                <div className="flex space-x-3">
+                  <Button
+                    onClick={() => router.push(`/results?sessionId=${sessionId}`)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg font-semibold"
+                    size="lg"
+                  >
+                    📊 분석 결과 보기
+                  </Button>
+                  <Button
+                    onClick={() => router.push('/upload')}
+                    variant="outline"
+                    className="border-green-600 text-green-600 hover:bg-green-50"
+                    size="lg"
+                  >
+                    🆕 새 영상 분석하기
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* 수동 재시작 버튼 (오류 시에만 표시) */}
         {error && !isAnalyzing && (
           <Card className="mt-8">
