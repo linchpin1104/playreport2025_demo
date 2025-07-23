@@ -80,10 +80,13 @@ const ANALYSIS_STEPS: Array<{id: string, name: string, description: string}> = [
 export async function POST(request: NextRequest): Promise<NextResponse<ComprehensiveAnalysisResponse>> {
   try {
     const body = await request.json() as ComprehensiveAnalysisRequest;
-    const sessionId = body.sessionId || uuidv4();
-    const isAsync = body.async !== false; // 기본적으로 비동기 처리
+    // 파라미터 파싱
+    const { sessionId } = body;
     
-    logger.info(`🚀 Starting ${isAsync ? 'ASYNC' : 'SYNC'} analysis for: ${sessionId}`);
+    // ⚠️ Vercel 임시 수정: 백그라운드 처리가 작동하지 않으므로 동기 처리로 강제
+    const isAsync = false; // body.async !== false; // 기본적으로 비동기 처리
+    
+    logger.info(`🎯 Analysis request: ${sessionId}, async: ${isAsync}`);
     
     const gcpStorage = new GCPDataStorage();
     const startTime = new Date().toISOString();
@@ -158,8 +161,34 @@ export async function POST(request: NextRequest): Promise<NextResponse<Comprehen
       });
     } else {
       // 🔄 동기 처리 (기존 방식) - 작은 영상용
-      const result = await performSyncAnalysis(sessionId);
-      return NextResponse.json(result);
+      logger.info('🔄 Performing synchronous analysis...');
+      try {
+        // 실제 분석 수행 (performBackgroundAnalysis와 동일한 로직)
+        await performBackgroundAnalysis(sessionId);
+        
+        // 완료된 세션 데이터 반환
+        const completedSession = await gcpStorage.getSession(sessionId);
+        return NextResponse.json({
+          sessionId,
+          status: 'completed' as const,
+          async: false,
+          startTime,
+          endTime: new Date().toISOString(),
+          totalProgress: 100,
+          session: completedSession
+        });
+      } catch (error) {
+        logger.error(`❌ Synchronous analysis failed for ${sessionId}:`, error);
+        return NextResponse.json({
+          sessionId,
+          status: 'failed' as const,
+          async: false,
+          startTime,
+          endTime: new Date().toISOString(),
+          totalProgress: 0,
+          error: error instanceof Error ? error.message : '분석 중 오류가 발생했습니다.'
+        }, { status: 500 });
+      }
     }
 
   } catch (error) {
@@ -375,21 +404,6 @@ async function performBackgroundAnalysis(sessionId: string): Promise<void> {
     
     throw error;
   }
-}
-
-/**
- * 🔄 동기 분석 수행 (작은 영상용)
- */
-async function performSyncAnalysis(sessionId: string): Promise<ComprehensiveAnalysisResponse> {
-  // 기존 동기 분석 로직 (간소화된 버전)
-  return {
-    sessionId,
-    status: 'completed',
-    async: false,
-    startTime: new Date().toISOString(),
-    endTime: new Date().toISOString(),
-    totalProgress: 100
-  };
 }
 
 export async function GET() {
