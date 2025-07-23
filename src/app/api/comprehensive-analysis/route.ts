@@ -78,11 +78,28 @@ const ANALYSIS_STEPS: Array<{id: string, name: string, description: string}> = [
  * 🚀 비동기 분석 시작
  */
 export async function POST(request: NextRequest): Promise<NextResponse<ComprehensiveAnalysisResponse>> {
+  const logger = new Logger('ComprehensiveAnalysisAPI');
+  const startTime = new Date().toISOString(); // 🔧 try 블록 밖으로 이동
+  
   try {
     const body = await request.json() as ComprehensiveAnalysisRequest;
     // 파라미터 파싱
     const { sessionId } = body;
     
+    if (!sessionId) {
+      logger.error('❌ SessionId is required');
+      return NextResponse.json({
+        sessionId: '',
+        status: 'failed' as const,
+        async: false,
+        startTime,
+        totalProgress: 0,
+        error: '세션 ID가 필요합니다.'
+      }, { status: 400 });
+    }
+    
+    logger.info(`🎯 Starting comprehensive analysis for session: ${sessionId}`);
+
     // 🎯 Vercel 타임아웃 해결책: 파일 크기별 처리 전략
     // 작은 파일(50MB 미만): 동기 처리 (3분 내 완료 예상)
     // 큰 파일(50MB 이상): 비동기 처리 + 결과보기 버튼
@@ -96,7 +113,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Comprehen
     
     logger.info(`🎯 Analysis request: ${sessionId}, fileSize: ${fileSizeMB.toFixed(1)}MB, async: ${isAsync}`);
     
-    const startTime = new Date().toISOString();
+    // startTime은 이미 위에서 정의됨
     
     // 세션 존재 확인 (이미 위에서 가져왔으므로 중복 제거)
     if (!sessionData) {
@@ -208,7 +225,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Comprehen
       sessionId: '',
       status: 'failed' as const,
       async: true,
-      startTime: new Date().toISOString(),
+      startTime,
       totalProgress: 0,
       error: error instanceof Error ? error.message : '분석 요청 처리 중 오류가 발생했습니다.'
     }, { status: 500 });
