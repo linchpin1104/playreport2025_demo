@@ -83,9 +83,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<Comprehen
     // 파라미터 파싱
     const { sessionId } = body;
     
-    // 🔄 Vercel 해결책: Status API를 통한 스마트 백그라운드 처리
-    // 클라이언트가 지속적으로 status를 확인하므로, status API에서 단계별 분석 수행
-    const isAsync = body.async !== false; // 기본적으로 비동기 처리
+    // ⚠️ Vercel 최종 해결책: 동기 처리 + UI에서 결과보기 버튼 제공
+    // 백그라운드 처리가 Vercel에서 작동하지 않으므로 동기 처리로 진행
+    const isAsync = false; // body.async !== false; // 임시로 동기 처리 강제
     
     logger.info(`🎯 Analysis request: ${sessionId}, async: ${isAsync}`);
     
