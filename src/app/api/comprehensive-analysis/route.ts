@@ -206,6 +206,8 @@ async function performBackgroundAnalysis(sessionId: string): Promise<void> {
       await gcpStorage.saveSession(sessionData);
 
       let analysisResults: any;
+      let videoIntelligenceResults: any; // 🔧 스코프 밖으로 이동
+      
       try {
         const videoAnalysisService = new VideoAnalysisService();
         const gsUri = sessionData.paths.rawDataPath ?? `gs://${configManager.get('gcp.bucketName')}/${sessionData.metadata.fileName}`;
@@ -232,7 +234,7 @@ async function performBackgroundAnalysis(sessionId: string): Promise<void> {
         logger.info('✅ Video Intelligence analysis completed successfully');
         
         // 데이터 구조 확인 및 정규화
-        const videoIntelligenceResults = analysisResults;
+        videoIntelligenceResults = analysisResults; // 🔧 const 제거, 할당만
         logger.info('📊 Analysis data structure:', {
           hasPersonDetection: !!videoIntelligenceResults.personDetection,
           personCount: videoIntelligenceResults.personDetection?.length || 0,
