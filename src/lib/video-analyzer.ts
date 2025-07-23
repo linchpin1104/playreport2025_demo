@@ -128,19 +128,77 @@ export class VideoAnalyzer {
 
       logger.info('🎬 비디오 분석 시작...');
       
-      // 분석 요청 실행
+      // 분석 요청 실행 (즉시 operation ID 반환, 결과 기다리지 않음)
       const [operation] = await this.client.annotateVideo(request);
       
-      logger.info('⏳ 분석 처리 중...');
-      const [result] = await operation.promise();
+      logger.info(`⏳ 분석 작업 시작됨. Operation ID: ${operation.name}`);
       
-      logger.info('✅ 비디오 분석 완료!');
-      
-      return this.processResults(result);
+      // 🔄 Long Running Operation 정보 반환 (결과 기다리지 않음)
+      return {
+        operationId: operation.name,
+        operationName: operation.name,
+        status: 'running',
+        startTime: new Date().toISOString(),
+        // 폴링용 메서드 제공
+        checkStatus: async () => {
+          return this.checkOperationStatus(operation.name!);
+        },
+        getResult: async () => {
+          const [result] = await operation.promise();
+          return this.processResults(result);
+        }
+      };
       
     } catch (error) {
       logger.error('❌ 비디오 분석 중 오류:', error as Error);
       throw new Error(`비디오 분석 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    }
+  }
+
+  /**
+   * 🔍 Long Running Operation 상태 확인
+   */
+  async checkOperationStatus(operationName: string): Promise<{
+    status: 'running' | 'completed' | 'failed';
+    progress?: number;
+    error?: string;
+    result?: VideoIntelligenceResults;
+  }> {
+    try {
+      const operation = this.client.operationsClient.getOperation({
+        name: operationName
+      });
+      
+      const [operationResult] = await operation;
+      
+      if (operationResult.done) {
+        if (operationResult.error) {
+          return {
+            status: 'failed',
+            error: operationResult.error.message || 'Unknown error'
+          };
+        } else {
+          // 완료된 경우 결과 처리
+          const result = this.processResults(operationResult.response);
+          return {
+            status: 'completed',
+            progress: 100,
+            result
+          };
+        }
+      } else {
+        // 아직 진행 중
+        return {
+          status: 'running',
+          progress: 50 // 추정값
+        };
+      }
+    } catch (error) {
+      logger.error('❌ Operation 상태 확인 실패:', error);
+      return {
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
 
