@@ -1,628 +1,516 @@
-/**
- * 물리적 상호작용 분석 모듈
- * 근접성, 움직임 동기화, 활동성 수준 측정
- */
+import { VideoIntelligenceResults } from '@/types';
 
-export interface BoundingBox {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
-
-export interface MovementEvent {
-  time: number;
-  type: 'move' | 'gesture' | 'static';
-  direction?: 'up' | 'down' | 'left' | 'right';
-  intensity: number;
-  bbox: BoundingBox;
-}
-
-export interface ActivityMetrics {
+export interface PhysicalInteractionResult {
+  proximityScore: number;
   activityLevel: 'low' | 'medium' | 'high';
   movementSpeed: number;
   activityArea: number;
   staticRatio: number;
-}
-
-export interface SynchronyAnalysis {
-  syncScore: number;
-  synchronizedEvents: Array<{
-    time: number;
-    type: 'synchronized' | 'mirrored';
-  }>;
-  mirroringCount: number;
-}
-
-export interface PhysicalInteractionResult {
-  proximityAnalysis: {
-    averageDistance: number;
-    closestApproach: number;
-    proximityScore: number;
-  };
-  movementSynchrony: SynchronyAnalysis;
-  activityMetrics: {
-    person1: ActivityMetrics;
-    person2: ActivityMetrics;
-    overallSynchrony: number;
-  };
-  interactionEvents: Array<{
-    time: number;
-    type: 'approach' | 'retreat' | 'parallel_movement' | 'contact';
-    duration: number;
-    intensity: number;
-  }>;
+  synchronizedEvents: Array<{time: number; type: 'synchronized' | 'mirrored'}>;
+  proximityTimeline: Array<{time: number; distance: number}>;
 }
 
 export class PhysicalInteractionAnalyzer {
-  private readonly proximityThreshold = 0.3; // 근접 판단 기준
-  private readonly syncWindow = 2.0; // 동기화 판단 시간 창(초)
-  private readonly movementThreshold = 0.01; // 움직임 감지 임계값
+  private readonly proximityThreshold = 0.3;
+  private readonly syncWindow = 2.0;
 
-  /**
-   * 물리적 상호작용 분석 수행
-   */
   async analyzePhysicalInteraction(
-    personDetectionData: unknown[],
-    sessionMetadata: Record<string, unknown>
+    personDetectionData: any[],
+    sessionMetadata: any
   ): Promise<PhysicalInteractionResult> {
+    console.log('🔍 Starting physical interaction analysis');
+    console.log(`📊 Person detection data: ${personDetectionData?.length || 0} entries`);
+
+    if (!personDetectionData || personDetectionData.length === 0) {
+      console.warn('⚠️ No person detection data available');
+      return this.createEmptyResult();
+    }
+
     try {
-      console.log('🔍 물리적 상호작용 분석 시작');
-      console.log('📊 입력 데이터:', {
-        personDetectionDataLength: personDetectionData?.length || 0,
-        firstItemSample: personDetectionData?.[0] || null
-      });
+      // 1. 실제 데이터에서 근접성 분석
+      const proximityData = this.analyzeProximityFromRealData(personDetectionData);
       
-      // 사람 데이터 분리
-      const person1Data = this.extractPersonData(personDetectionData, 0);
-      const person2Data = this.extractPersonData(personDetectionData, 1);
+      // 2. 실제 데이터에서 활동성 수준 분석
+      const activityData = this.analyzeActivityFromRealData(personDetectionData);
+      
+      // 3. 실제 움직임 패턴에서 동기화 분석
+      const synchronizationData = this.analyzeSynchronizationFromRealData(personDetectionData);
 
-      console.log('📊 추출된 데이터 요약:', {
-        person1Count: person1Data.length,
-        person2Count: person2Data.length
-      });
-
-      if (person1Data.length === 0 && person2Data.length === 0) {
-        console.log('⚠️ 사람 데이터가 없어 기본값 반환');
-        return this.getDefaultResult();
-      }
-
-      // 근접성 분석
-      const proximityAnalysis = this.analyzeProximity(person1Data, person2Data);
-
-      // 움직임 추출
-      const movements1 = this.extractMovements(person1Data);
-      const movements2 = this.extractMovements(person2Data);
-
-      // 움직임 동기화 분석
-      const movementSynchrony = this.analyzeMovementSynchrony(movements1, movements2);
-
-      // 활동성 수준 분석
-      const activityMetrics = {
-        person1: this.calculateActivityMetrics(person1Data),
-        person2: this.calculateActivityMetrics(person2Data),
-        overallSynchrony: this.calculateOverallSynchrony(movements1, movements2)
-      };
-
-      // 상호작용 이벤트 감지
-      const interactionEvents = this.detectInteractionEvents(person1Data, person2Data);
-
-      const result = {
-        proximityAnalysis,
-        movementSynchrony,
-        activityMetrics,
-        interactionEvents
-      };
-
-      console.log('✅ 물리적 상호작용 분석 완료:', {
-        proximityScore: proximityAnalysis.proximityScore,
-        syncScore: movementSynchrony.syncScore,
-        interactionEventCount: interactionEvents.length
+      console.log('✅ Physical interaction analysis completed', {
+        proximityScore: proximityData.score,
+        activityLevel: activityData.level,
+        eventsFound: synchronizationData.events.length
       });
 
-      return result;
-
-    } catch (error) {
-      console.error('❌ 물리적 상호작용 분석 오류:', error);
-      return this.getDefaultResult();
-    }
-  }
-
-  /**
-   * 사람 데이터 추출 (개선된 버전)
-   */
-  private extractPersonData(detectionData: unknown[], personIndex: number): Array<{
-    time: number;
-    bbox: BoundingBox;
-    confidence: number;
-  }> {
-    const personData: Array<{
-      time: number;
-      bbox: BoundingBox;
-      confidence: number;
-    }> = [];
-    
-    console.log(`🔍 사람 데이터 추출 시작 (personIndex: ${personIndex})`);
-    console.log(`📊 전체 detectionData 길이: ${detectionData?.length || 0}`);
-    
-    if (!detectionData || detectionData.length === 0) {
-      console.log('⚠️ detectionData가 비어있음');
-      return personData;
-    }
-    
-    // Google Cloud Video Intelligence API의 personDetection 구조에 맞게 수정
-    let personCount = 0;
-    
-    for (const detection of detectionData) {
-      const detectionData_cast = detection as any;
-      
-      if (detectionData_cast.tracks) {
-        for (const track of detectionData_cast.tracks) {
-          // 각 트랙은 하나의 사람을 나타냄
-          if (personCount === personIndex) {
-            console.log(`✅ 사람 ${personIndex} 트랙 발견`);
-            console.log(`📊 트랙 정보:`, {
-              hasTimestampedObjects: !!track.timestampedObjects,
-              timestampedObjectsLength: track.timestampedObjects?.length || 0,
-              hasSegment: !!track.segment,
-              segment: track.segment || null
-            });
-            
-            // 방법 1: timestampedObjects 사용 (기본)
-            if (track.timestampedObjects && track.timestampedObjects.length > 0) {
-              for (const timestampedObject of track.timestampedObjects) {
-                const bbox = timestampedObject.normalizedBoundingBox;
-                console.log(`🔍 TimestampedObject 처리:`, {
-                  hasTimeOffset: !!timestampedObject.timeOffset,
-                  timeOffset: timestampedObject.timeOffset,
-                  hasBbox: !!bbox,
-                  bbox,
-                  confidence: timestampedObject.confidence
-                });
-                
-                if (bbox) {
-                  let timeValue = 0;
-                  if (timestampedObject.timeOffset) {
-                    if (typeof timestampedObject.timeOffset === 'number') {
-                      timeValue = timestampedObject.timeOffset;
-                    } else if (typeof timestampedObject.timeOffset === 'object') {
-                      const seconds = parseInt(timestampedObject.timeOffset.seconds || '0');
-                      const nanos = parseInt(timestampedObject.timeOffset.nanos || '0');
-                      timeValue = seconds + nanos / 1000000000;
-                    }
-                  }
-                  
-                  personData.push({
-                    time: timeValue,
-                    bbox: {
-                      left: bbox.left || 0,
-                      top: bbox.top || 0,
-                      right: bbox.right || 1,
-                      bottom: bbox.bottom || 1
-                    },
-                    confidence: timestampedObject.confidence || 0.5
-                  });
-                }
-              }
-            }
-            // 방법 2: segment 정보 사용 (fallback)
-            else if (track.segment) {
-              console.log(`🔄 timestampedObjects가 비어있음 - segment 정보 사용`);
-              const startTime = track.segment.startTimeOffset || 0;
-              const endTime = track.segment.endTimeOffset || 0;
-              
-              // 세그먼트 시간 동안 가상의 데이터 포인트 생성
-              const duration = endTime - startTime;
-              const intervals = Math.max(1, Math.min(10, Math.floor(duration))); // 1-10개 간격
-              
-              for (let i = 0; i <= intervals; i++) {
-                const time = startTime + (duration * i / intervals);
-                personData.push({
-                  time,
-                  bbox: {
-                    left: 0.2 + (personIndex * 0.3), // 사람별로 다른 위치
-                    top: 0.2,
-                    right: 0.5 + (personIndex * 0.3),
-                    bottom: 0.8
-                  },
-                  confidence: 0.7 // 기본 신뢰도
-                });
-              }
-              
-              console.log(`📊 세그먼트 기반 데이터 생성: ${personData.length}개`);
-            }
-          }
-          personCount++;
-        }
-      }
-    }
-    
-    console.log(`📊 추출된 사람 ${personIndex} 데이터: ${personData.length}개`);
-    if (personData.length > 0) {
-      console.log(`🎯 첫 번째 데이터 샘플:`, personData[0]);
-      console.log(`🎯 마지막 데이터 샘플:`, personData[personData.length - 1]);
-    } else {
-      console.log('⚠️ 추출된 데이터가 없습니다. 데이터 구조 확인 필요:');
-      console.log('🔍 첫 번째 detection 샘플:', JSON.stringify(detectionData[0], null, 2));
-    }
-
-    return personData.sort((a, b) => a.time - b.time);
-  }
-
-  /**
-   * 근접성 분석
-   */
-  private analyzeProximity(person1Data: Array<{
-    time: number;
-    bbox: BoundingBox;
-    confidence: number;
-  }>, person2Data: Array<{
-    time: number;
-    bbox: BoundingBox;
-    confidence: number;
-  }>): {
-    averageDistance: number;
-    closestApproach: number;
-    proximityScore: number;
-  } {
-    const distances = [];
-    let closestDistance = Infinity;
-
-    // 시간 순으로 정렬하여 매칭
-    const minLength = Math.min(person1Data.length, person2Data.length);
-    
-    for (let i = 0; i < minLength; i++) {
-      const distance = this.calculateDistance(person1Data[i].bbox, person2Data[i].bbox);
-      distances.push(distance);
-      
-      if (distance < closestDistance) {
-        closestDistance = distance;
-      }
-    }
-
-    const averageDistance = distances.length > 0 ? 
-      distances.reduce((sum, d) => sum + d, 0) / distances.length : 1.0;
-
-    // 근접성 점수 계산 (0-1, 1이 가장 가까움)
-    const proximityScore = Math.max(0, 1 - averageDistance);
-
-    return {
-      averageDistance,
-      closestApproach: closestDistance === Infinity ? 1.0 : closestDistance,
-      proximityScore
-    };
-  }
-
-  /**
-   * 두 바운딩 박스 간 거리 계산
-   */
-  private calculateDistance(bbox1: BoundingBox, bbox2: BoundingBox): number {
-    const center1 = this.getCenter(bbox1);
-    const center2 = this.getCenter(bbox2);
-    
-    const distance = Math.sqrt(
-      Math.pow(center1.x - center2.x, 2) + 
-      Math.pow(center1.y - center2.y, 2)
-    );
-    
-    // 정규화 (대각선 길이 기준)
-    return Math.min(distance / Math.sqrt(2), 1.0);
-  }
-
-  /**
-   * 바운딩 박스 중심점 계산
-   */
-  private getCenter(bbox: BoundingBox): { x: number; y: number } {
-    return {
-      x: (bbox.left + bbox.right) / 2,
-      y: (bbox.top + bbox.bottom) / 2
-    };
-  }
-
-  /**
-   * 움직임 추출
-   */
-  private extractMovements(personData: Array<{
-    time: number;
-    bbox: BoundingBox;
-    confidence: number;
-  }>): MovementEvent[] {
-    const movements = [];
-    
-    for (let i = 1; i < personData.length; i++) {
-      const prev = personData[i - 1];
-      const curr = personData[i];
-      
-      const speed = this.calculateSpeed(prev.bbox, curr.bbox);
-      const direction = this.calculateDirection(prev.bbox, curr.bbox);
-      
-      let type: 'move' | 'gesture' | 'static' = 'static';
-      if (speed > this.movementThreshold) {
-        type = speed > 0.05 ? 'move' : 'gesture';
-      }
-      
-      movements.push({
-        time: curr.time,
-        type,
-        direction,
-        intensity: speed,
-        bbox: curr.bbox
-      });
-    }
-    
-    return movements;
-  }
-
-  /**
-   * 움직임 속도 계산
-   */
-  private calculateSpeed(bbox1: BoundingBox, bbox2: BoundingBox): number {
-    const center1 = this.getCenter(bbox1);
-    const center2 = this.getCenter(bbox2);
-    
-    return Math.sqrt(
-      Math.pow(center1.x - center2.x, 2) + 
-      Math.pow(center1.y - center2.y, 2)
-    );
-  }
-
-  /**
-   * 움직임 방향 계산
-   */
-  private calculateDirection(bbox1: BoundingBox, bbox2: BoundingBox): 'up' | 'down' | 'left' | 'right' {
-    const center1 = this.getCenter(bbox1);
-    const center2 = this.getCenter(bbox2);
-    
-    const dx = center2.x - center1.x;
-    const dy = center2.y - center1.y;
-    
-    if (Math.abs(dx) > Math.abs(dy)) {
-      return dx > 0 ? 'right' : 'left';
-    } else {
-      return dy > 0 ? 'down' : 'up';
-    }
-  }
-
-  /**
-   * 움직임 동기화 분석
-   */
-  private analyzeMovementSynchrony(movements1: MovementEvent[], movements2: MovementEvent[]): SynchronyAnalysis {
-    const syncEvents = [];
-    let mirroringCount = 0;
-
-    for (const m1 of movements1) {
-      for (const m2 of movements2) {
-        const timeDiff = Math.abs(m1.time - m2.time);
-        
-        if (timeDiff <= this.syncWindow) {
-          if (this.isSimilarMovement(m1, m2)) {
-            syncEvents.push({
-              time: m1.time,
-              type: 'synchronized' as const
-            });
-          } else if (this.isMirroredMovement(m1, m2)) {
-            syncEvents.push({
-              time: m1.time,
-              type: 'mirrored' as const
-            });
-            mirroringCount++;
-          }
-        }
-      }
-    }
-
-    const syncScore = syncEvents.length / Math.max(movements1.length, movements2.length, 1);
-
-    return {
-      syncScore: Math.min(syncScore, 1.0),
-      synchronizedEvents: syncEvents,
-      mirroringCount
-    };
-  }
-
-  /**
-   * 유사한 움직임 판단
-   */
-  private isSimilarMovement(m1: MovementEvent, m2: MovementEvent): boolean {
-    return (
-      m1.type === m2.type &&
-      m1.direction === m2.direction &&
-      Math.abs(m1.intensity - m2.intensity) < 0.02
-    );
-  }
-
-  /**
-   * 미러링 움직임 판단
-   */
-  private isMirroredMovement(m1: MovementEvent, m2: MovementEvent): boolean {
-    const oppositeDirection: Record<string, string> = {
-      'up': 'down',
-      'down': 'up',
-      'left': 'right',
-      'right': 'left'
-    };
-
-    return (
-      m1.type === m2.type &&
-      m1.direction !== undefined &&
-      m2.direction !== undefined &&
-      m1.direction === oppositeDirection[m2.direction] &&
-      Math.abs(m1.intensity - m2.intensity) < 0.02
-    );
-  }
-
-  /**
-   * 활동성 수준 계산
-   */
-  private calculateActivityMetrics(personData: Array<{
-    time: number;
-    bbox: BoundingBox;
-    confidence: number;
-  }>): ActivityMetrics {
-    if (personData.length < 2) {
       return {
-        activityLevel: 'low',
-        movementSpeed: 0,
-        activityArea: 0,
-        staticRatio: 1.0
+        proximityScore: proximityData.score,
+        activityLevel: activityData.level,
+        movementSpeed: activityData.speed,
+        activityArea: activityData.area,
+        staticRatio: activityData.staticRatio,
+        synchronizedEvents: synchronizationData.events,
+        proximityTimeline: proximityData.timeline
       };
+    } catch (error) {
+      console.error('❌ Error in physical interaction analysis:', error);
+      return this.createEmptyResult();
+    }
+  }
+
+  /**
+   * 🔄 추출된 데이터로 물리적 상호작용 분석 (신규 메서드)
+   */
+  async analyzePhysicalInteractionFromExtractedData(
+    personMovements: Array<{
+      personId: number;
+      movements: Array<{
+        time: number;
+        bbox: { left: number; top: number; right: number; bottom: number };
+        center: [number, number];
+        size: number;
+      }>;
+    }>,
+    sessionMetadata: any
+  ): Promise<PhysicalInteractionResult> {
+    console.log('🔍 Starting physical interaction analysis with extracted data');
+    console.log(`📊 Person movements: ${personMovements?.length || 0} persons`);
+
+    if (!personMovements || personMovements.length === 0) {
+      console.warn('⚠️ No person movement data available');
+      return this.createEmptyResult();
+    }
+
+    try {
+      // 1. 추출된 데이터에서 근접성 분석
+      const proximityData = this.analyzeProximityFromExtractedData(personMovements);
+      
+      // 2. 추출된 데이터에서 활동성 수준 분석
+      const activityData = this.analyzeActivityFromExtractedData(personMovements);
+      
+      // 3. 추출된 데이터에서 동기화 분석
+      const synchronizationData = this.analyzeSynchronizationFromExtractedData(personMovements);
+
+      console.log('✅ Physical interaction analysis completed with extracted data', {
+        proximityScore: proximityData.score,
+        activityLevel: activityData.level,
+        eventsFound: synchronizationData.events.length
+      });
+
+      return {
+        proximityScore: proximityData.score,
+        activityLevel: activityData.level,
+        movementSpeed: activityData.speed,
+        activityArea: activityData.area,
+        staticRatio: activityData.staticRatio,
+        synchronizedEvents: synchronizationData.events,
+        proximityTimeline: proximityData.timeline
+      };
+    } catch (error) {
+      console.error('❌ Error in physical interaction analysis with extracted data:', error);
+      return this.createEmptyResult();
+    }
+  }
+
+  private analyzeProximityFromRealData(personData: any[]): {score: number; timeline: Array<{time: number; distance: number}>} {
+    const timeline: Array<{time: number; distance: number}> = [];
+    let totalProximity = 0;
+    let validFrames = 0;
+    
+    // 사람 추적 데이터를 시간순으로 그룹화
+    const frameGroups: Record<number, any[]> = {};
+    
+    personData.forEach(person => {
+      person.tracks?.forEach((track: any) => {
+        track.timestampedObjects?.forEach((obj: any) => {
+          const timeSeconds = this.parseTimeOffset(obj.timeOffset);
+          const timeKey = Math.floor(timeSeconds);
+          
+          if (!frameGroups[timeKey]) {
+            frameGroups[timeKey] = [];
+          }
+          frameGroups[timeKey].push({
+            time: timeSeconds,
+            bbox: obj.normalizedBoundingBox
+          });
+        });
+      });
+    });
+
+    // 각 시간대에서 두 사람 간 거리 계산
+    Object.entries(frameGroups).forEach(([timeStr, objects]) => {
+      const time = parseInt(timeStr);
+      
+      if (objects.length >= 2) {
+        // 가장 큰 두 개의 바운딩 박스 선택 (가장 명확한 사람들)
+        const sortedObjects = objects
+          .filter(obj => obj.bbox)
+          .sort((a, b) => this.getBboxSize(b.bbox) - this.getBboxSize(a.bbox))
+          .slice(0, 2);
+
+        if (sortedObjects.length === 2) {
+          const distance = this.calculateDistance(sortedObjects[0].bbox, sortedObjects[1].bbox);
+          timeline.push({ time, distance });
+          totalProximity += (1 - distance); // 거리가 가까울수록 높은 점수
+          validFrames++;
+        }
+      }
+    });
+
+    const score = validFrames > 0 
+      ? Math.min((totalProximity / validFrames) * 100, 100)
+      : 0;
+    
+    console.log(`📏 Proximity analysis: ${validFrames} valid frames, score: ${score.toFixed(1)}`);
+    
+    return { score: Math.round(score), timeline };
+  }
+
+  private analyzeProximityFromExtractedData(
+    personMovements: Array<{ personId: number; movements: Array<{ time: number; center: [number, number]; size: number }> }>
+  ): {score: number; timeline: Array<{time: number; distance: number}>} {
+    const timeline: Array<{time: number; distance: number}> = [];
+    let totalProximity = 0;
+    let validFrames = 0;
+
+    if (personMovements.length < 2) {
+      console.warn('⚠️ Need at least 2 persons for proximity analysis');
+      return { score: 0, timeline: [] };
+    }
+
+    const person1Movements = personMovements[0].movements;
+    const person2Movements = personMovements[1].movements;
+
+    // 시간 기준으로 매칭
+    person1Movements.forEach(movement1 => {
+      // 가장 가까운 시간의 person2 움직임 찾기
+      const closestMovement2 = person2Movements.reduce((closest, movement2) => {
+        const timeDiff1 = Math.abs(movement1.time - movement2.time);
+        const timeDiff2 = Math.abs(movement1.time - closest.time);
+        return timeDiff1 < timeDiff2 ? movement2 : closest;
+      }, person2Movements[0]);
+
+      if (Math.abs(movement1.time - closestMovement2.time) <= 2) { // 2초 이내
+        const distance = Math.sqrt(
+          Math.pow(movement1.center[0] - closestMovement2.center[0], 2) +
+          Math.pow(movement1.center[1] - closestMovement2.center[1], 2)
+        );
+
+        timeline.push({ time: movement1.time, distance });
+        totalProximity += (1 - Math.min(distance, 1)); // 거리가 가까울수록 높은 점수
+        validFrames++;
+      }
+    });
+
+    const score = validFrames > 0 
+      ? Math.min((totalProximity / validFrames) * 100, 100)
+      : 0;
+    
+    console.log(`📏 Proximity analysis with extracted data: ${validFrames} valid frames, score: ${score.toFixed(1)}`);
+    
+    return { score: Math.round(score), timeline };
+  }
+
+  private analyzeActivityFromRealData(personData: any[]): {
+    level: 'low' | 'medium' | 'high';
+    speed: number;
+    area: number;
+    staticRatio: number;
+  } {
+    const movements: Array<{time: number; center: [number, number]; size: number}> = [];
+    
+    // 사람별 움직임 추출
+    personData.forEach(person => {
+      person.tracks?.forEach((track: any) => {
+        const trackMovements: Array<{time: number; center: [number, number]; size: number}> = [];
+        
+        track.timestampedObjects?.forEach((obj: any) => {
+          if (obj.normalizedBoundingBox) {
+            const time = this.parseTimeOffset(obj.timeOffset);
+            const center = this.getBboxCenter(obj.normalizedBoundingBox);
+            const size = this.getBboxSize(obj.normalizedBoundingBox);
+            
+            trackMovements.push({ time, center, size });
+          }
+        });
+        
+        // 시간순 정렬
+        trackMovements.sort((a, b) => a.time - b.time);
+        movements.push(...trackMovements);
+      });
+    });
+
+    if (movements.length < 2) {
+      return { level: 'low', speed: 0, area: 0, staticRatio: 1 };
     }
 
     // 움직임 속도 계산
-    const speeds = [];
-    for (let i = 1; i < personData.length; i++) {
-      const speed = this.calculateSpeed(personData[i - 1].bbox, personData[i].bbox);
-      speeds.push(speed);
+    const speeds: number[] = [];
+    for (let i = 1; i < movements.length; i++) {
+      const timeDiff = movements[i].time - movements[i-1].time;
+      if (timeDiff > 0) {
+        const distance = Math.sqrt(
+          Math.pow(movements[i].center[0] - movements[i-1].center[0], 2) +
+          Math.pow(movements[i].center[1] - movements[i-1].center[1], 2)
+        );
+        speeds.push(distance / timeDiff);
+      }
     }
 
-    const avgSpeed = speeds.length > 0 ? 
-      speeds.reduce((sum, s) => sum + s, 0) / speeds.length : 0;
+    const avgSpeed = speeds.length > 0 ? speeds.reduce((a, b) => a + b, 0) / speeds.length : 0;
 
     // 활동 영역 계산
-    const centers = personData.map(p => this.getCenter(p.bbox));
-    const activityArea = this.calculateCoverageArea(centers);
+    const xCoords = movements.map(m => m.center[0]);
+    const yCoords = movements.map(m => m.center[1]);
+    const area = xCoords.length > 0 ? 
+      (Math.max(...xCoords) - Math.min(...xCoords)) * (Math.max(...yCoords) - Math.min(...yCoords)) : 0;
 
-    // 정적 시간 비율
-    const staticFrames = speeds.filter(s => s < this.movementThreshold).length;
-    const staticRatio = staticFrames / speeds.length;
+    // 정적 비율 계산 (속도가 매우 낮은 구간)
+    const staticThreshold = 0.01;
+    const staticFrames = speeds.filter(s => s < staticThreshold).length;
+    const staticRatio = speeds.length > 0 ? staticFrames / speeds.length : 1;
 
-    // 활동 수준 판정
-    let activityLevel: 'low' | 'medium' | 'high' = 'low';
+    // 활동 수준 결정
+    let level: 'low' | 'medium' | 'high';
     if (avgSpeed < 0.02 && staticRatio > 0.7) {
-      activityLevel = 'low';
+      level = 'low';
     } else if (avgSpeed > 0.08 || staticRatio < 0.3) {
-      activityLevel = 'high';
+      level = 'high';
     } else {
-      activityLevel = 'medium';
+      level = 'medium';
     }
 
+    console.log(`🏃 Activity analysis: speed=${avgSpeed.toFixed(4)}, area=${area.toFixed(3)}, static=${(staticRatio * 100).toFixed(1)}%`);
+
     return {
-      activityLevel,
-      movementSpeed: avgSpeed,
-      activityArea,
-      staticRatio
+      level,
+      speed: Number(avgSpeed.toFixed(3)),
+      area: Number(area.toFixed(3)),
+      staticRatio: Number(staticRatio.toFixed(3))
     };
   }
 
-  /**
-   * 활동 영역 면적 계산
-   */
-  private calculateCoverageArea(centers: Array<{ x: number; y: number }>): number {
-    if (centers.length < 3) {
-      return 0.0;
+  private analyzeActivityFromExtractedData(
+    personMovements: Array<{ personId: number; movements: Array<{ time: number; center: [number, number]; size: number }> }>
+  ): { level: 'low' | 'medium' | 'high'; speed: number; area: number; staticRatio: number } {
+    
+    const allMovements = personMovements.flatMap(person => person.movements);
+    
+    if (allMovements.length < 2) {
+      return { level: 'low', speed: 0, area: 0, staticRatio: 1 };
     }
 
-    const xs = centers.map(c => c.x);
-    const ys = centers.map(c => c.y);
+    // 시간순 정렬
+    allMovements.sort((a, b) => a.time - b.time);
 
-    const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
-    return Math.max(0, Math.min(area, 1.0));
-  }
-
-  /**
-   * 전체 동기화 계산
-   */
-  private calculateOverallSynchrony(movements1: MovementEvent[], movements2: MovementEvent[]): number {
-    if (movements1.length === 0 || movements2.length === 0) {
-      return 0.0;
+    // 움직임 속도 계산
+    const speeds: number[] = [];
+    for (let i = 1; i < allMovements.length; i++) {
+      const timeDiff = allMovements[i].time - allMovements[i-1].time;
+      if (timeDiff > 0) {
+        const distance = Math.sqrt(
+          Math.pow(allMovements[i].center[0] - allMovements[i-1].center[0], 2) +
+          Math.pow(allMovements[i].center[1] - allMovements[i-1].center[1], 2)
+        );
+        speeds.push(distance / timeDiff);
+      }
     }
 
-    const syncAnalysis = this.analyzeMovementSynchrony(movements1, movements2);
-    return syncAnalysis.syncScore;
+    const avgSpeed = speeds.length > 0 ? speeds.reduce((a, b) => a + b, 0) / speeds.length : 0;
+
+    // 활동 영역 계산
+    const xCoords = allMovements.map(m => m.center[0]);
+    const yCoords = allMovements.map(m => m.center[1]);
+    const area = xCoords.length > 0 ? 
+      (Math.max(...xCoords) - Math.min(...xCoords)) * (Math.max(...yCoords) - Math.min(...yCoords)) : 0;
+
+    // 정적 비율 계산
+    const staticThreshold = 0.01;
+    const staticFrames = speeds.filter(s => s < staticThreshold).length;
+    const staticRatio = speeds.length > 0 ? staticFrames / speeds.length : 1;
+
+    // 활동 수준 결정
+    let level: 'low' | 'medium' | 'high';
+    if (avgSpeed < 0.02 && staticRatio > 0.7) {
+      level = 'low';
+    } else if (avgSpeed > 0.08 || staticRatio < 0.3) {
+      level = 'high';
+    } else {
+      level = 'medium';
+    }
+
+    console.log(`🏃 Activity analysis with extracted data: speed=${avgSpeed.toFixed(4)}, area=${area.toFixed(3)}, static=${(staticRatio * 100).toFixed(1)}%`);
+
+    return {
+      level,
+      speed: Number(avgSpeed.toFixed(3)),
+      area: Number(area.toFixed(3)),
+      staticRatio: Number(staticRatio.toFixed(3))
+    };
   }
 
-  /**
-   * 상호작용 이벤트 감지
-   */
-  private detectInteractionEvents(person1Data: Array<{
-    time: number;
-    bbox: BoundingBox;
-    confidence: number;
-  }>, person2Data: Array<{
-    time: number;
-    bbox: BoundingBox;
-    confidence: number;
-  }>): Array<{
-    time: number;
-    type: 'approach' | 'retreat' | 'parallel_movement' | 'contact';
-    duration: number;
-    intensity: number;
-  }> {
-    const events = [];
-    const minLength = Math.min(person1Data.length, person2Data.length);
+  private analyzeSynchronizationFromRealData(personData: any[]): {events: Array<{time: number; type: 'synchronized' | 'mirrored'}>} {
+    const events: Array<{time: number; type: 'synchronized' | 'mirrored'}> = [];
+    
+    // 각 사람별 움직임 패턴 추출
+    const personTracks: Array<Array<{time: number; center: [number, number]}>> = [];
+    
+    personData.forEach(person => {
+      person.tracks?.forEach((track: any) => {
+        const trackData: Array<{time: number; center: [number, number]}> = [];
+        
+        track.timestampedObjects?.forEach((obj: any) => {
+          if (obj.normalizedBoundingBox) {
+            const time = this.parseTimeOffset(obj.timeOffset);
+            const center = this.getBboxCenter(obj.normalizedBoundingBox);
+            trackData.push({ time, center });
+          }
+        });
+        
+        if (trackData.length > 0) {
+          trackData.sort((a, b) => a.time - b.time);
+          personTracks.push(trackData);
+        }
+      });
+    });
 
-    for (let i = 1; i < minLength; i++) {
-      const prevDistance = this.calculateDistance(person1Data[i-1].bbox, person2Data[i-1].bbox);
-      const currDistance = this.calculateDistance(person1Data[i].bbox, person2Data[i].bbox);
-      const distanceChange = currDistance - prevDistance;
-
-      let eventType: 'approach' | 'retreat' | 'parallel_movement' | 'contact' = 'parallel_movement';
+    // 두 사람의 움직임 동기화 분석
+    if (personTracks.length >= 2) {
+      const track1 = personTracks[0];
+      const track2 = personTracks[1];
       
-      if (Math.abs(distanceChange) > 0.02) {
-        if (distanceChange < 0) {
-          eventType = 'approach';
-        } else {
-          eventType = 'retreat';
+      // 시간대별로 움직임 방향 비교
+      for (let i = 1; i < Math.min(track1.length, track2.length); i++) {
+        const t1Prev = track1[i-1];
+        const t1Curr = track1[i];
+        const t2Prev = track2[i-1];
+        const t2Curr = track2[i];
+        
+        if (Math.abs(t1Curr.time - t2Curr.time) <= this.syncWindow) {
+          // 움직임 벡터 계산
+          const v1 = [t1Curr.center[0] - t1Prev.center[0], t1Curr.center[1] - t1Prev.center[1]];
+          const v2 = [t2Curr.center[0] - t2Prev.center[0], t2Curr.center[1] - t2Prev.center[1]];
+          
+          // 벡터 크기 확인 (최소 움직임)
+          const magnitude1 = Math.sqrt(v1[0] * v1[0] + v1[1] * v1[1]);
+          const magnitude2 = Math.sqrt(v2[0] * v2[0] + v2[1] * v2[1]);
+          
+          if (magnitude1 > 0.01 && magnitude2 > 0.01) {
+            // 내적을 이용한 방향 유사성 계산
+            const dotProduct = v1[0] * v2[0] + v1[1] * v2[1];
+            const similarity = dotProduct / (magnitude1 * magnitude2);
+            
+            if (similarity > 0.7) {
+              // 같은 방향 - 동기화
+              events.push({ time: t1Curr.time, type: 'synchronized' });
+            } else if (similarity < -0.7) {
+              // 반대 방향 - 미러링
+              events.push({ time: t1Curr.time, type: 'mirrored' });
+            }
+          }
         }
       }
-
-      if (currDistance < 0.1) {
-        eventType = 'contact';
-      }
-
-      events.push({
-        time: person1Data[i].time,
-        type: eventType,
-        duration: 1.0, // 프레임 단위
-        intensity: Math.abs(distanceChange)
-      });
     }
 
-    return events;
-  }
-
-  /**
-   * 시간 오프셋 파싱
-   */
-  private parseTimeOffset(timeOffset: string): number {
-    if (!timeOffset) {return 0;}
+    console.log(`🔄 Synchronization analysis: ${events.length} events found`);
     
-    // "123.456s" 형태의 문자열을 숫자로 변환
-    const match = timeOffset.match(/^(\d+(?:\.\d+)?)s?$/);
-    return match ? parseFloat(match[1]) : 0;
+    return { events };
   }
 
-  /**
-   * 기본 결과 반환
-   */
-  private getDefaultResult(): PhysicalInteractionResult {
+  private analyzeSynchronizationFromExtractedData(
+    personMovements: Array<{ personId: number; movements: Array<{ time: number; center: [number, number]; size: number }> }>
+  ): {events: Array<{time: number; type: 'synchronized' | 'mirrored'}>} {
+    const events: Array<{time: number; type: 'synchronized' | 'mirrored'}> = [];
+    
+    if (personMovements.length < 2) {
+      return { events: [] };
+    }
+
+    const person1Movements = personMovements[0].movements.sort((a, b) => a.time - b.time);
+    const person2Movements = personMovements[1].movements.sort((a, b) => a.time - b.time);
+    
+    // 두 사람의 움직임 동기화 분석
+    for (let i = 1; i < Math.min(person1Movements.length, person2Movements.length); i++) {
+      const p1Prev = person1Movements[i-1];
+      const p1Curr = person1Movements[i];
+      const p2Prev = person2Movements[i-1];
+      const p2Curr = person2Movements[i];
+      
+      if (Math.abs(p1Curr.time - p2Curr.time) <= this.syncWindow) {
+        // 움직임 벡터 계산
+        const v1 = [p1Curr.center[0] - p1Prev.center[0], p1Curr.center[1] - p1Prev.center[1]];
+        const v2 = [p2Curr.center[0] - p2Prev.center[0], p2Curr.center[1] - p2Prev.center[1]];
+        
+        // 벡터 크기 확인
+        const magnitude1 = Math.sqrt(v1[0] * v1[0] + v1[1] * v1[1]);
+        const magnitude2 = Math.sqrt(v2[0] * v2[0] + v2[1] * v2[1]);
+        
+        if (magnitude1 > 0.01 && magnitude2 > 0.01) {
+          // 내적을 이용한 방향 유사성
+          const dotProduct = v1[0] * v2[0] + v1[1] * v2[1];
+          const similarity = dotProduct / (magnitude1 * magnitude2);
+          
+          if (similarity > 0.7) {
+            events.push({ time: p1Curr.time, type: 'synchronized' });
+          } else if (similarity < -0.7) {
+            events.push({ time: p1Curr.time, type: 'mirrored' });
+          }
+        }
+      }
+    }
+
+    console.log(`🔄 Synchronization analysis with extracted data: ${events.length} events found`);
+    
+    return { events };
+  }
+
+  // 유틸리티 메서드들
+  private parseTimeOffset(timeOffset: any): number {
+    if (!timeOffset) return 0;
+    
+    if (typeof timeOffset === 'string') {
+      return parseFloat(timeOffset);
+    }
+    
+    if (timeOffset.seconds !== undefined) {
+      const seconds = parseInt(timeOffset.seconds) || 0;
+      const nanos = parseInt(timeOffset.nanos) || 0;
+      return seconds + nanos / 1e9;
+    }
+    
+    return 0;
+  }
+
+  private getBboxCenter(bbox: any): [number, number] {
+    const x = (bbox.left + bbox.right) / 2;
+    const y = (bbox.top + bbox.bottom) / 2;
+    return [x, y];
+  }
+
+  private getBboxSize(bbox: any): number {
+    const width = bbox.right - bbox.left;
+    const height = bbox.bottom - bbox.top;
+    return width * height;
+  }
+
+  private calculateDistance(bbox1: any, bbox2: any): number {
+    const center1 = this.getBboxCenter(bbox1);
+    const center2 = this.getBboxCenter(bbox2);
+    
+    return Math.sqrt(
+      Math.pow(center1[0] - center2[0], 2) + 
+      Math.pow(center1[1] - center2[1], 2)
+    );
+  }
+
+  private createEmptyResult(): PhysicalInteractionResult {
     return {
-      proximityAnalysis: {
-        averageDistance: 1.0,
-        closestApproach: 1.0,
-        proximityScore: 0.0
-      },
-      movementSynchrony: {
-        syncScore: 0.0,
-        synchronizedEvents: [],
-        mirroringCount: 0
-      },
-      activityMetrics: {
-        person1: {
-          activityLevel: 'low',
-          movementSpeed: 0,
-          activityArea: 0,
-          staticRatio: 1.0
-        },
-        person2: {
-          activityLevel: 'low',
-          movementSpeed: 0,
-          activityArea: 0,
-          staticRatio: 1.0
-        },
-        overallSynchrony: 0.0
-      },
-      interactionEvents: []
+      proximityScore: 0,
+      activityLevel: 'low',
+      movementSpeed: 0,
+      activityArea: 0,
+      staticRatio: 1,
+      synchronizedEvents: [],
+      proximityTimeline: []
     };
   }
 } 

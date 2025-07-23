@@ -1,13 +1,10 @@
-import { PlayAnalysisCore , PlayAnalysisExtractor } from '@/lib/play-analysis-extractor';
 import { VideoIntelligenceResults } from '@/types';
 import { AppError } from '../errors';
 import { GCPDataStorage } from '../gcp-data-storage';
-import { IntegratedAnalysisSystem , IntegratedAnalysisResult } from '../integrated-analysis-system';
 import { ServiceResult } from '../interfaces';
 import { VideoAnalyzer } from '../video-analyzer';
 import { ErrorHandlingService } from './error-handling-service';
 import { Logger } from './logger';
-import { configManager } from './config-manager';
 
 export interface VideoAnalysisRequest {
   sessionId?: string;
@@ -37,7 +34,7 @@ export interface VideoAnalysisResult {
     fileName: string;
     gsUri: string;
     processingTime: number;
-    analysisMode: 'development' | 'production';
+    analysisMode: string;
     sessionId?: string;
   };
   stage1Complete: boolean;
@@ -46,96 +43,31 @@ export interface VideoAnalysisResult {
   stage4Complete: boolean;
 }
 
-export interface ProcessedAnalysisData {
-  videoAnalysisData: {
-    objectTracking: VideoIntelligenceResults['objectTracking'];
-    faceDetection: VideoIntelligenceResults['faceDetection'];
-    personDetection: VideoIntelligenceResults['personDetection'];
-    shotChanges: VideoIntelligenceResults['shotChanges'];
-  };
-  audioAnalysisData: {
-    transcript: TranscriptEntry[];
-    speakers: string[];
-    emotions: EmotionEntry[];
-    voiceMetrics: VoiceMetricsEntry[];
-  };
-  sessionMetadata: {
-    duration: number;
-    participants: string[];
-    sessionType: 'play-interaction';
-    timestamp: string;
-  };
-}
-
-export interface TranscriptEntry {
-  text: string;
-  confidence: number;
-  startTime: number;
-  endTime: number;
-  speaker: string;
-  time: number; // 호환성을 위해 추가
-}
-
-export interface EmotionEntry {
-  emotion: string;
-  confidence: number;
-  timeSegment: { start: number; end: number };
-  speaker: string;
-}
-
-export interface VoiceMetricsEntry {
-  volume: number;
-  pitch: number;
-  rate: number;
-  timeSegment: { start: number; end: number };
-  speaker: string;
-}
-
+/**
+ * 🎬 간소화된 비디오 분석 서비스
+ * DI 시스템 제거하고 직접 인스턴스화 사용
+ */
 export class VideoAnalysisService {
   private readonly logger: Logger;
   private readonly errorHandler: ErrorHandlingService;
+  private readonly videoAnalyzer: VideoAnalyzer;
+  private readonly gcpDataStorage: GCPDataStorage;
 
-  constructor(
-    private readonly videoAnalyzer: VideoAnalyzer,
-    private readonly gcpDataStorage: GCPDataStorage,
-    private readonly integratedAnalysisSystem: IntegratedAnalysisSystem,
-    private readonly playAnalysisExtractor: PlayAnalysisExtractor
-  ) {
+  constructor() {
     this.logger = new Logger('VideoAnalysisService');
     this.errorHandler = new ErrorHandlingService();
+    this.videoAnalyzer = new VideoAnalyzer();
+    this.gcpDataStorage = new GCPDataStorage();
   }
 
   /**
-   * 전체 비디오 분석 워크플로우 실행
+   * 전체 비디오 분석 워크플로우 실행 (단순화됨)
    */
-  async performCompleteAnalysis(request: VideoAnalysisRequest): Promise<ServiceResult<VideoAnalysisResult>> {
+  async performCompleteAnalysis(request: VideoAnalysisRequest): Promise<ServiceResult<VideoIntelligenceResults>> {
     return this.errorHandler.wrapAsync(
-      'complete-video-analysis',
+      'video-analysis',
       async () => {
-        this.logger.info('Starting complete video analysis', { request });
-
-        // 런타임에서 필요한 환경변수 검증
-        try {
-          // 이미 export된 configManager 인스턴스 사용
-          
-          // GCP 관련 설정이 필요한 경우에만 체크
-          if (request.options?.enableTranscription || 
-              request.options?.enableSpeakerDiarization || 
-              request.options?.enableComprehensiveAnalysis) {
-            configManager.validateRequiredConfig(['gcp.keyFile']);
-          }
-          
-          // OpenAI 관련 설정이 필요한 경우에만 체크
-          if (request.options?.enableComprehensiveAnalysis ||
-              request.options?.enableSentimentAnalysis) {
-            configManager.validateRequiredConfig(['apis.openai.apiKey']);
-          }
-        } catch (configError) {
-          // 환경변수 누락 시 경고 로그만 남기고 계속 진행 (개발 모드)
-          this.logger.warn('Configuration warning (continuing with limited features):', {
-            error: configError instanceof Error ? configError.message : String(configError)
-          });
-        }
+        this.logger.info('🎬 Starting simplified video analysis', { request });
 
         // 1. 비디오 경로 확인
         const videoPathResult = await this.resolveVideoPath(request);
@@ -143,72 +75,33 @@ export class VideoAnalysisService {
           throw new Error(`Video path resolution failed: ${videoPathResult.getError().message}`);
         }
 
-        const { videoPath, sessionData } = videoPathResult.getValue();
+        const { videoPath } = videoPathResult.getValue();
 
-        // 2. Stage 1: 기본 비디오 분석
-        this.logger.info('🎬 Stage 1: Google Cloud Video Intelligence 분석 시작...');
-        const stage1Result = await this.performStage1Analysis(videoPath, request.options);
-        if (stage1Result.isFailure()) {
-          throw new Error(`Stage 1 analysis failed: ${stage1Result.getError().message}`);
-        }
-
-        const analysisResults = stage1Result.getValue();
-        this.logger.info('✅ Stage 1 완료: 기본 비디오 분석 완료');
-
-        // 3. Stage 2: 데이터 분리 및 가공
-        this.logger.info('🔄 Stage 2: 데이터 분리 및 가공 시작...');
-        const stage2Result = await this.performStage2Processing(analysisResults);
-        if (stage2Result.isFailure()) {
-          throw new Error(`Stage 2 processing failed: ${stage2Result.getError().message}`);
-        }
-
-        const processedData = stage2Result.getValue();
-        this.logger.info('✅ Stage 2 완료: 데이터 분리 완료');
-
-        // 4. Stage 3: 통합 분석
-        this.logger.info('🎯 Stage 3: 통합 분석 시작...');
-        const stage3Result = await this.performStage3Analysis(processedData);
-        if (stage3Result.isFailure()) {
-          throw new Error(`Stage 3 analysis failed: ${stage3Result.getError().message}`);
-        }
-
-        const integratedResults = stage3Result.getValue();
-        this.logger.info('✅ Stage 3 완료: 통합 분석 완료');
-
-        // 5. Stage 4: 핵심 정보 추출 (원본 analysisResults 사용)
-        this.logger.info('🎪 Stage 4: 핵심 정보 추출 시작...');
-        const stage4Result = await this.performStage4Extraction(analysisResults, sessionData);
-        if (stage4Result.isFailure()) {
-          throw new Error(`Stage 4 extraction failed: ${stage4Result.getError().message}`);
-        }
-
-        this.logger.info('✅ Stage 4 완료: 핵심 정보 추출 완료');
-        this.logger.info('🎉 전체 분석 완료!');
-
-        // 6. 결과 구성
-        const result: VideoAnalysisResult = {
-          analysisResults,
-          metadata: {
-            fileName: request.fileName || sessionData?.metadata?.fileName || 'unknown',
-            gsUri: videoPath,
-            processingTime: Date.now(),
-            analysisMode: 'production',
-            sessionId: request.sessionId
-          },
-          stage1Complete: true,
-          stage2Complete: true,
-          stage3Complete: true,
-          stage4Complete: true
+        // 2. VideoAnalyzer로 직접 분석 (단계별 복잡성 제거)
+        this.logger.info('🔍 Starting Google Cloud Video Intelligence analysis...');
+        
+        const analysisOptions = {
+          enableVoiceAnalysis: request.options?.enableVoiceAnalysis ?? true,
+          enableVideoAnalysis: request.options?.enableVideoAnalysis ?? true,
+          enableTranscription: request.options?.enableTranscription ?? true,
+          enableSpeakerDiarization: request.options?.enableSpeakerDiarization ?? true,
+          enableFaceDetection: request.options?.enableFaceDetection ?? true,
+          enableObjectDetection: request.options?.enableObjectDetection ?? true,
+          enableGestureRecognition: request.options?.enableGestureRecognition ?? true,
         };
 
-        return result;
+        const results = await this.videoAnalyzer.analyzeVideo(videoPath, analysisOptions);
+        
+        this.logger.info('✅ Video Intelligence analysis completed');
+        
+        // 3. 결과 반환 (추가 처리 없이)
+        return results;
       },
       {
         sessionId: request.sessionId,
         metadata: {
           fileName: request.fileName,
           gsUri: request.gsUri,
-          endpoint: '/api/analyze',
           timestamp: new Date().toISOString()
         }
       }
@@ -251,301 +144,11 @@ export class VideoAnalysisService {
       }
     );
   }
+}
 
-  /**
-   * Stage 1: 기본 비디오 분석
-   */
-  private async performStage1Analysis(videoPath: string, options: Record<string, any> = {}): Promise<ServiceResult<VideoIntelligenceResults>> {
-    return this.errorHandler.wrapAsync(
-      'stage1-video-analysis',
-      async () => {
-        const analysisOptions = {
-          enableVoiceAnalysis: true,
-          enableGestureRecognition: true,
-          enableObjectDetection: true,
-          enableFaceDetection: true,
-          enableTranscription: true,
-          enableSpeakerDiarization: true,
-          enableSentimentAnalysis: true,
-          enableQualityMetrics: true,
-          enableComprehensiveAnalysis: true,
-          ...options
-        };
-
-        const results = await this.videoAnalyzer.analyzeVideo(videoPath, analysisOptions);
-        
-        // 🔍 원본 데이터 구조 로깅 (디버깅용)
-        console.log('🔍 DEBUGGING: Full analysis results structure:', {
-          personDetectionExists: !!results.personDetection,
-          personDetectionLength: results.personDetection?.length || 0,
-          objectTrackingExists: !!results.objectTracking,
-          objectTrackingLength: results.objectTracking?.length || 0,
-          faceDetectionExists: !!results.faceDetection,
-          faceDetectionLength: results.faceDetection?.length || 0,
-          allKeys: Object.keys(results)
-        });
-
-        // Person Detection 상세 로그
-        if (results.personDetection && results.personDetection.length > 0) {
-          console.log('👤 Person Detection Details:', {
-            count: results.personDetection.length,
-            sample: results.personDetection.slice(0, 2).map((person: any, index: number) => ({
-              index,
-              confidence: person.confidence,
-              boundingBoxes: person.segments?.length || 0,
-              segments: person.segments?.slice(0, 2).map((seg: any) => ({
-                startTime: seg.segment?.startTimeOffset,
-                endTime: seg.segment?.endTimeOffset,
-                confidence: seg.confidence
-              })) || []
-            }))
-          });
-        }
-
-        // Object Tracking 상세 로그 (사람 관련만)
-        if (results.objectTracking && results.objectTracking.length > 0) {
-          const personObjects = results.objectTracking.filter((obj: any) => 
-            obj.entity?.description?.toLowerCase().includes('person') || 
-            obj.entity?.description?.toLowerCase().includes('human')
-          );
-          
-          console.log('🎯 Object Tracking Person Details:', {
-            totalObjects: results.objectTracking.length,
-            personObjects: personObjects.length,
-            personSample: personObjects.slice(0, 3).map((obj: any) => ({
-              entity: obj.entity?.description,
-              confidence: obj.confidence,
-              categoryId: obj.entity?.categoryId
-            })),
-            allEntities: results.objectTracking.slice(0, 10).map((obj: any) => obj.entity?.description)
-          });
-        }
-
-        // Face Detection 상세 로그
-        if (results.faceDetection && results.faceDetection.length > 0) {
-          console.log('😊 Face Detection Details:', {
-            count: results.faceDetection.length,
-            sample: results.faceDetection.slice(0, 2).map((face: any, index: number) => ({
-              index,
-              confidence: face.confidence || 'N/A',
-              segments: face.segments?.length || 0,
-              attributes: Object.keys(face.attributes || {})
-            }))
-          });
-        }
-
-        // 🚨 중요: 사람 감지 여부 확인하지만 블로킹하지 않음 (원본 데이터 저장을 위해)
-        const hasPersonDetection = results.personDetection && results.personDetection.length > 0;
-        const hasPersonInObjects = results.objectTracking && 
-          results.objectTracking.some((obj: any) => {
-            const description = obj.entity?.description?.toLowerCase() || '';
-            const confidence = obj.confidence || 0;
-            return (description.includes('person') || description.includes('human')) && confidence > 0.3;
-          });
-        
-        const hasFaceDetection = results.faceDetection && results.faceDetection.length > 0;
-        const personDetectionScore = [hasPersonDetection, hasPersonInObjects, hasFaceDetection].filter(Boolean).length;
-
-        console.log('🚨 Person Detection Summary (NON-BLOCKING):', {
-          hasPersonDetection,
-          hasPersonInObjects, 
-          hasFaceDetection,
-          totalPersonIndicators: personDetectionScore
-        });
-
-        // 사람 감지가 약하면 경고만 표시 (블로킹하지 않음)
-        if (personDetectionScore === 0) {
-          console.warn('⚠️ LOW PERSON DETECTION - But continuing with analysis. Raw data will be saved for debugging.');
-          
-          // 상세 디버그 정보 (에러가 아닌 경고로)
-          console.warn('🔍 Complete Debug Info for Low Person Detection:', {
-            analysisResultsKeys: Object.keys(results),
-            personDetection: {
-              exists: !!results.personDetection,
-              length: results.personDetection?.length || 0,
-              sample: results.personDetection || null
-            },
-            objectTracking: {
-              exists: !!results.objectTracking,
-              length: results.objectTracking?.length || 0,
-              entities: results.objectTracking?.map((obj: any) => ({
-                description: obj.entity?.description,
-                confidence: obj.confidence
-              })).slice(0, 10) || []
-            },
-            faceDetection: {
-              exists: !!results.faceDetection,
-              length: results.faceDetection?.length || 0,
-              sample: results.faceDetection?.slice(0, 1) || null
-            }
-          });
-        } else {
-          console.log('✅ Person detection successful:', {
-            personDetection: hasPersonDetection,
-            personInObjects: hasPersonInObjects,
-            faceDetection: hasFaceDetection,
-            score: personDetectionScore
-          });
-        }
-
-        // 원본 데이터는 사람 감지 여부와 관계없이 항상 반환 
-        return results;
-      },
-      {
-        metadata: {
-          videoPath,
-          stage: 'stage1',
-          timestamp: new Date().toISOString()
-        }
-      }
-    );
-  }
-
-  /**
-   * Stage 2: 데이터 분리 및 가공
-   */
-  private async performStage2Processing(analysisResults: VideoIntelligenceResults): Promise<ServiceResult<ProcessedAnalysisData>> {
-    return this.errorHandler.wrapAsync(
-      'stage2-data-processing',
-      async () => {
-        // 필요한 핵심 정보만 추출하여 가공
-        const processedData: ProcessedAnalysisData = {
-          videoAnalysisData: {
-            objectTracking: analysisResults.objectTracking || [],
-            faceDetection: analysisResults.faceDetection || [],
-            personDetection: analysisResults.personDetection || [],
-            shotChanges: analysisResults.shotChanges || []
-          },
-          audioAnalysisData: {
-            transcript: this.extractTranscript(analysisResults.speechTranscription),
-            speakers: this.extractSpeakers(analysisResults.speechTranscription),
-            emotions: [],
-            voiceMetrics: []
-          },
-          sessionMetadata: {
-            duration: this.calculateDuration(analysisResults.shotChanges),
-            participants: ['parent', 'child'],
-            sessionType: 'play-interaction',
-            timestamp: new Date().toISOString()
-          }
-        };
-
-        return processedData;
-      },
-      {
-        metadata: {
-          stage: 'stage2',
-          dataSize: JSON.stringify(analysisResults).length,
-          timestamp: new Date().toISOString()
-        }
-      }
-    );
-  }
-
-  /**
-   * Stage 3: 통합 분석
-   */
-  private async performStage3Analysis(processedData: ProcessedAnalysisData): Promise<ServiceResult<IntegratedAnalysisResult>> {
-    return this.errorHandler.wrapAsync(
-      'stage3-integrated-analysis',
-      async () => {
-        return await this.integratedAnalysisSystem.performIntegratedAnalysis(
-          processedData,
-          processedData.sessionMetadata.timestamp
-        );
-      },
-      {
-        metadata: {
-          stage: 'stage3',
-          sessionType: processedData.sessionMetadata.sessionType,
-          timestamp: new Date().toISOString()
-        }
-      }
-    );
-  }
-
-  /**
-   * Stage 4: 핵심 정보 추출
-   */
-  private async performStage4Extraction(analysisResults: VideoIntelligenceResults, sessionData: any): Promise<ServiceResult<PlayAnalysisCore>> {
-    return this.errorHandler.wrapAsync(
-      'stage4-core-extraction',
-      async () => {
-        const playCore = await this.playAnalysisExtractor.extractPlayAnalysisCore(
-          analysisResults,
-          {
-            fileName: sessionData?.metadata?.fileName || 'unknown',
-            fileSize: sessionData?.metadata?.fileSize || 0,
-            exportTime: new Date().toISOString()
-          }
-        );
-
-        // 세션이 있는 경우 핵심 정보 저장
-        if (sessionData?.sessionId) {
-          await this.gcpDataStorage.savePlayCore(sessionData.sessionId, playCore);
-          await this.gcpDataStorage.updateSessionStatus(sessionData.sessionId, 'analyzed');
-        }
-
-        return playCore;
-      },
-      {
-        sessionId: sessionData?.sessionId,
-        metadata: {
-          stage: 'stage4',
-          fileName: sessionData?.metadata?.fileName,
-          timestamp: new Date().toISOString()
-        }
-      }
-    );
-  }
-
-  /**
-   * 전사 데이터 추출
-   */
-  private extractTranscript(speechTranscription: any[]): TranscriptEntry[] {
-    if (!speechTranscription || speechTranscription.length === 0) {
-      return [];
-    }
-
-    return speechTranscription.map(item => ({
-      text: item.alternatives?.[0]?.transcript || '',
-      confidence: item.alternatives?.[0]?.confidence || 0,
-      startTime: item.alternatives?.[0]?.words?.[0]?.startTime || 0,
-      endTime: item.alternatives?.[0]?.words?.[item.alternatives[0].words.length - 1]?.endTime || 0,
-      speaker: item.alternatives?.[0]?.words?.[0]?.speakerTag?.toString() || 'unknown',
-      time: item.alternatives?.[0]?.words?.[0]?.startTime || 0
-    }));
-  }
-
-  /**
-   * 화자 정보 추출
-   */
-  private extractSpeakers(speechTranscription: any[]): string[] {
-    if (!speechTranscription || speechTranscription.length === 0) {
-      return [];
-    }
-
-    const speakers = new Set<string>();
-    speechTranscription.forEach(item => {
-      item.alternatives?.[0]?.words?.forEach((word: any) => {
-        if (word.speakerTag) {
-          speakers.add(`speaker_${word.speakerTag}`);
-        }
-      });
-    });
-
-    return Array.from(speakers);
-  }
-
-  /**
-   * 비디오 지속 시간 계산
-   */
-  private calculateDuration(shotChanges: any[]): number {
-    if (!shotChanges || shotChanges.length === 0) {
-      return 0;
-    }
-
-    const lastShot = shotChanges[shotChanges.length - 1];
-    return lastShot.endTimeOffset || 0;
-  }
+/**
+ * 🏭 간소화된 팩토리 함수 (DI 시스템 대체)
+ */
+export function getVideoAnalysisService(): VideoAnalysisService {
+  return new VideoAnalysisService();
 } 

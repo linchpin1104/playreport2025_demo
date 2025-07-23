@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { configManager } from '@/lib/services/config-manager';
 import { GCPDataStorage } from '@/lib/gcp-data-storage';
-import { UserInfo } from '@/types';
+import { UserInfo, PlayAnalysisSession } from '@/types';
 
 // Next.js App Router Route Segment Config
 export const runtime = 'nodejs';
@@ -134,16 +134,32 @@ export async function POST(request: NextRequest) {
     console.log(`📁 생성된 파일 경로: ${filePath}`);
 
     // 세션 생성
-    console.log('📝 세션 생성 시도...');
-    let session;
+    console.log('🎬 세션 생성 시도...');
+    let session: PlayAnalysisSession;
     try {
       const gcpStorage = new GCPDataStorage();
-      session = await gcpStorage.createSessionWithUserInfo(
+      const sessionId = await gcpStorage.createSessionWithUserInfo(
         fileName,        // originalName (실제 파일명)
         fileSize,        // fileSize (숫자)
         userInfo         // userInfo (객체)
       );
-      console.log(`✅ 세션 생성 성공: ${session.sessionId}`);
+
+      console.log(`✅ Session created successfully:`, {
+        sessionId,
+        fileName: fileName,
+        fileSize: `${Math.round(fileSize / 1024 / 1024)}MB`,
+        userInfo: userInfo ? 'provided' : 'none'
+      });
+
+      // 세션 생성 확인
+      const createdSession = await gcpStorage.getSession(sessionId);
+      if (!createdSession) {
+        console.error(`❌ Failed to verify session creation: ${sessionId}`);
+        throw new Error('세션 생성 후 검증 실패');
+      }
+
+      session = createdSession;
+      console.log(`✅ Session verification passed: ${sessionId}`);
     } catch (sessionError) {
       console.error('❌ 세션 생성 실패:', sessionError);
       return NextResponse.json(

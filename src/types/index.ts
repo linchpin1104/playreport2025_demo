@@ -267,6 +267,8 @@ export interface PlayAnalysisSession {
     videoUrl?: string;
     thumbnailUrl?: string;
     analysisDataUrl?: string;
+    extractedDataUrl?: string;    // 추출된 분석 데이터 경로
+    unifiedAnalysisUrl?: string;  // 통합 분석 결과 경로
     corePath?: string;
     voiceAnalysisPath?: string;
     evaluationPath?: string;

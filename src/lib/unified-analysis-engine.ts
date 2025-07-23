@@ -1,13 +1,18 @@
 /**
- * 🎯 통합 분석 엔진 (Unified Analysis Engine)
+ * 🎯 통합 분석 엔진 (Unified Analysis Engine) v2.0
  * 
- * 모든 분석 기능을 하나의 클래스로 통합:
- * - 기존 13개+ 분석 클래스들을 통합
- * - 비디오 + 음성 + 통합 분석을 한번에 처리
- * - 간단하고 명확한 API 제공
+ * 개선된 워크플로우:
+ * 1. 원본 데이터 → 데이터 추출 → 추출된 데이터 저장
+ * 2. 분석기들은 추출된 데이터만 사용 (메모리 효율성)
+ * 3. 실제 데이터 기반 분석 (가짜 데이터 완전 제거)
  */
 
 import { VideoIntelligenceResults } from '@/types';
+import { DataExtractor, ExtractedAnalysisData } from './data-extractor';
+import { EmotionalInteractionAnalyzer, EmotionalInteractionResult } from './emotional-interaction-analyzer';
+import { LanguageInteractionAnalyzer, LanguageInteractionResult } from './language-interaction-analyzer';
+import { PhysicalInteractionAnalyzer, PhysicalInteractionResult } from './physical-interaction-analyzer';
+import { PlayPatternAnalyzer, PlayPatternResult } from './play-pattern-analyzer';
 import { Logger } from './services/logger';
 
 const logger = new Logger('UnifiedAnalysisEngine');
@@ -15,10 +20,14 @@ const logger = new Logger('UnifiedAnalysisEngine');
 export interface UnifiedAnalysisInput {
   sessionId: string;
   videoResults: VideoIntelligenceResults;
-  metadata: {
-    fileName: string;
-    fileSize: number;
-    duration?: number;
+  userInfo?: {
+    parentAge?: number;
+    childAge?: number;
+    relationship?: string;
+  };
+  metadata?: {
+    fileName?: string;
+    fileSize?: number;
   };
 }
 
@@ -26,84 +35,151 @@ export interface UnifiedAnalysisResult {
   sessionId: string;
   overallScore: number;
   interactionQuality: number;
-  
-  // 비디오 분석 결과
   videoAnalysis: {
-    objectsDetected: number;
-    facesDetected: number;
-    personDetected: boolean;
     duration: number;
+    participantCount: number;
+    sceneChanges: number;
+    objectsDetected: number;
+    personDetected: boolean;
   };
-  
-  // 음성 분석 결과  
   audioAnalysis: {
-    speakerCount: number;
-    totalWords: number;
-    conversationBalance: number;
-    interactionQuality: number;
+    totalUtterances: number;
+    averageUtteranceLength: number;
+    speechDuration: number;
+    silenceDuration: number;
+    uniqueWords: number;
   };
-  
-  // 통합 분석 결과
   integratedAnalysis: {
-    physicalInteraction: number;
-    emotionalConnection: number;
-    languageInteraction: number;
+    physicalInteraction: PhysicalInteractionResult;
+    languageInteraction: LanguageInteractionResult;
+    emotionalInteraction: EmotionalInteractionResult;
+    playPatterns: PlayPatternResult;
     playPatternQuality: number;
   };
-  
-  // 주요 발견사항
   keyFindings: string[];
-  
-  // 추천사항
   recommendations: string[];
-  
-  // 메타데이터
   analysisMetadata: {
     processedAt: string;
     confidence: number;
     dataQuality: 'excellent' | 'good' | 'fair' | 'poor';
+    extractionMetrics: {
+      originalDataSize: number;
+      extractedDataSize: number;
+      compressionRatio: number;
+    };
   };
 }
 
 export class UnifiedAnalysisEngine {
-  
+  private readonly dataExtractor: DataExtractor;
+  private readonly physicalAnalyzer: PhysicalInteractionAnalyzer;
+  private readonly languageAnalyzer: LanguageInteractionAnalyzer;
+  private readonly emotionalAnalyzer: EmotionalInteractionAnalyzer;
+  private readonly playPatternAnalyzer: PlayPatternAnalyzer;
+
+  constructor() {
+    this.dataExtractor = new DataExtractor();
+    this.physicalAnalyzer = new PhysicalInteractionAnalyzer();
+    this.languageAnalyzer = new LanguageInteractionAnalyzer();
+    this.emotionalAnalyzer = new EmotionalInteractionAnalyzer();
+    this.playPatternAnalyzer = new PlayPatternAnalyzer();
+  }
+
   /**
-   * 🎯 모든 분석을 한번에 수행하는 통합 메서드
+   * 📊 완전한 분석 수행 (새로운 워크플로우)
    */
-  performCompleteAnalysis(input: UnifiedAnalysisInput): UnifiedAnalysisResult {
-    logger.info(`🚀 Starting unified analysis for session: ${input.sessionId}`);
-    
+  async performCompleteAnalysis(input: UnifiedAnalysisInput): Promise<{result: UnifiedAnalysisResult, extractedData: ExtractedAnalysisData}> {
+    try {
+      logger.info(`🚀 Starting unified analysis for session: ${input.sessionId}`);
+
+      // 🔄 1단계: 원본 데이터에서 분석용 데이터 추출
+      logger.info('📊 Step 1: Extracting analysis data from raw results...');
+      const extractedData = await this.dataExtractor.extractAnalysisData(
+        input.sessionId,
+        input.videoResults
+      );
+
+      // 🔍 2단계: 추출된 데이터로 분석 수행
+      logger.info('🧠 Step 2: Performing analysis with extracted data...');
+      const result = await this.executeAnalysisWithExtractedData(input, extractedData);
+
+      logger.info(`✅ Unified analysis completed for ${input.sessionId}`);
+      return { result, extractedData };
+
+    } catch (error) {
+      logger.error(`❌ Unified analysis failed for ${input.sessionId}:`, error);
+      throw error;
+    }
+  }
+
+  private async executeAnalysisWithExtractedData(
+    input: UnifiedAnalysisInput, 
+    extractedData: ExtractedAnalysisData
+  ): Promise<UnifiedAnalysisResult> {
     const startTime = Date.now();
     
-    // 1. 비디오 분석
-    const videoAnalysis = this.analyzeVideoData(input.videoResults);
+    // 1. 기본 비디오 분석 (추출된 메타데이터 사용)
+    const videoAnalysis = this.analyzeVideoFromExtractedData(extractedData);
     
-    // 2. 음성 분석
-    const audioAnalysis = this.analyzeAudioData(input.videoResults);
+    // 2. 기본 음성 분석 (추출된 음성 데이터 사용)
+    const audioAnalysis = this.analyzeAudioFromExtractedData(extractedData);
     
-    // 3. 통합 분석 (비디오 + 음성)
-    const integratedAnalysis = this.performIntegratedAnalysis(videoAnalysis, audioAnalysis);
+    // 3. 상세 분석 실행 (병렬 처리, 추출된 데이터만 사용)
+    logger.info('🔍 Running detailed analysis with extracted data...');
+    const [physicalInteraction, languageInteraction, emotionalInteraction, playPatterns] = await Promise.all([
+      this.physicalAnalyzer.analyzePhysicalInteractionFromExtractedData(
+        extractedData.personMovements,
+        { duration: extractedData.sceneMetadata.totalDuration, participants: extractedData.sceneMetadata.participantCount }
+      ),
+      this.languageAnalyzer.analyzeLanguageInteraction(extractedData.speechData),
+      this.emotionalAnalyzer.analyzeEmotionalInteraction(
+        extractedData.faceInteractions,
+        extractedData.personMovements // converted format
+      ),
+      this.playPatternAnalyzer.analyzePlayPatternsFromExtractedData(
+        extractedData.objectEvents,
+        extractedData.personMovements,
+        { duration: extractedData.sceneMetadata.totalDuration }
+      )
+    ]);
+
+    // 4. 통합 분석 결과
+    const integratedAnalysis = {
+      physicalInteraction,
+      languageInteraction,
+      emotionalInteraction,
+      playPatterns,
+      playPatternQuality: this.calculatePlayPatternQuality(playPatterns)
+    };
     
-    // 4. 전체 점수 계산
+    // 5. 전체 점수 계산
     const overallScore = this.calculateOverallScore(videoAnalysis, audioAnalysis, integratedAnalysis);
     
-    // 5. 주요 발견사항 생성
+    // 6. 상호작용 품질 계산
+    const interactionQuality = this.calculateInteractionQuality(integratedAnalysis);
+    
+    // 7. 주요 발견사항 생성
     const keyFindings = this.generateKeyFindings(videoAnalysis, audioAnalysis, integratedAnalysis);
     
-    // 6. 추천사항 생성
+    // 8. 추천사항 생성
     const recommendations = this.generateRecommendations(integratedAnalysis, overallScore);
     
-    // 7. 메타데이터 생성
+    // 9. 메타데이터 생성 (추출 메트릭 포함)
     const analysisMetadata = {
       processedAt: new Date().toISOString(),
       confidence: this.calculateConfidence(videoAnalysis, audioAnalysis),
-      dataQuality: this.assessDataQuality(input.videoResults) as 'excellent' | 'good' | 'fair' | 'poor'
+      dataQuality: this.assessDataQuality(extractedData) as 'excellent' | 'good' | 'fair' | 'poor',
+      extractionMetrics: {
+        originalDataSize: extractedData.originalDataSize,
+        extractedDataSize: extractedData.extractedDataSize,
+        compressionRatio: extractedData.compressionRatio
+      }
     };
     
     const result: UnifiedAnalysisResult = {
       sessionId: input.sessionId,
       overallScore,
-      interactionQuality: integratedAnalysis.physicalInteraction,
+      interactionQuality,
       videoAnalysis,
       audioAnalysis,
       integratedAnalysis,
@@ -113,403 +189,238 @@ export class UnifiedAnalysisEngine {
     };
     
     const processingTime = Date.now() - startTime;
-    logger.info(`✅ Unified analysis completed in ${processingTime}ms with score: ${overallScore}`);
+    logger.info(`✅ Analysis with extracted data completed in ${processingTime}ms`, {
+      overallScore,
+      compressionRatio: `${extractedData.compressionRatio.toFixed(1)}%`,
+      originalDataSize: `${(extractedData.originalDataSize / 1024 / 1024).toFixed(2)}MB`,
+      extractedDataSize: `${(extractedData.extractedDataSize / 1024).toFixed(1)}KB`
+    });
     
     return result;
   }
-  
-  /**
-   * 📹 비디오 데이터 분석 (단순화)
-   */
-  private analyzeVideoData(videoResults: VideoIntelligenceResults): UnifiedAnalysisResult['videoAnalysis'] {
-    const objectsDetected = videoResults.objectTracking?.length || 0;
-    const facesDetected = videoResults.faceDetection?.length || 0;
-    const personDetected = videoResults.personDetection?.length > 0 || false;
-    const duration = this.estimateDuration(videoResults);
-    
-    logger.info(`📹 Video analysis: ${objectsDetected} objects, ${facesDetected} faces, person: ${personDetected}`);
+
+  private analyzeVideoFromExtractedData(extractedData: ExtractedAnalysisData) {
+    const { sceneMetadata, personMovements, objectEvents } = extractedData;
     
     return {
-      objectsDetected,
-      facesDetected,
-      personDetected,
-      duration
+      duration: sceneMetadata.totalDuration,
+      participantCount: sceneMetadata.participantCount,
+      sceneChanges: sceneMetadata.shotChanges.length,
+      objectsDetected: objectEvents.length,
+      personDetected: personMovements.length > 0
     };
   }
-  
-  /**
-   * 🎤 음성 데이터 분석 (단순화)
-   */
-  private analyzeAudioData(videoResults: VideoIntelligenceResults): UnifiedAnalysisResult['audioAnalysis'] {
-    const speechData = videoResults.speechTranscription || [];
+
+  private analyzeAudioFromExtractedData(extractedData: ExtractedAnalysisData) {
+    const { speechData } = extractedData;
     
-    let totalWords = 0;
-    const speakers = new Set<string>();
+    const totalUtterances = speechData.length;
+    const totalWords = speechData.reduce((sum, entry) => {
+      const wordCount = entry.text.trim().split(/\s+/).length;
+      return sum + wordCount;
+    }, 0);
     
-    speechData.forEach((segment: any) => {
-      segment.alternatives?.forEach((alt: any) => {
-        if (alt.words) {
-          totalWords += alt.words.length;
-          alt.words.forEach((word: any) => {
-            if (word.speakerTag) {
-              speakers.add(word.speakerTag.toString());
-            }
-          });
-        }
-      });
-    });
+    const averageUtteranceLength = totalUtterances > 0 ? totalWords / totalUtterances : 0;
     
-    const speakerCount = speakers.size;
-    const conversationBalance = speakerCount >= 2 ? 0.8 : 0.5;
-    const interactionQuality = totalWords > 50 ? 0.85 : 0.6;
+    // 발화 시간 계산 (대략적으로 단어당 0.5초로 추정)
+    const speechDuration = totalWords * 0.5;
+    const silenceDuration = Math.max(0, extractedData.sceneMetadata.totalDuration - speechDuration);
     
-    logger.info(`🎤 Audio analysis: ${totalWords} words, ${speakerCount} speakers`);
-    
+    // 고유 단어 수 계산
+    const allWords = speechData.flatMap(entry => 
+      entry.text.toLowerCase().split(/\s+/).filter(word => word.length > 2)
+    );
+    const uniqueWords = new Set(allWords).size;
+
     return {
-      speakerCount,
-      totalWords,
-      conversationBalance,
-      interactionQuality
+      totalUtterances,
+      averageUtteranceLength: Number(averageUtteranceLength.toFixed(1)),
+      speechDuration: Number(speechDuration.toFixed(1)),
+      silenceDuration: Number(silenceDuration.toFixed(1)),
+      uniqueWords
     };
   }
-  
-  /**
-   * 🔗 통합 분석 수행 (실제 데이터 기반)
-   */
-  private performIntegratedAnalysis(
-    videoAnalysis: UnifiedAnalysisResult['videoAnalysis'],
-    audioAnalysis: UnifiedAnalysisResult['audioAnalysis']
-  ): UnifiedAnalysisResult['integratedAnalysis'] {
+
+  private calculatePlayPatternQuality(playPatterns: PlayPatternResult): number {
+    // 장난감 다양성, 공유 비율, 창의성 기반으로 품질 점수 계산
+    const diversityScore = Math.min(playPatterns.toysDetected.length * 20, 40);
+    const sharingScore = playPatterns.sharingRatio * 30;
+    const creativityScore = playPatterns.creativityIndicators.diversityScore * 0.3;
     
-    // 물리적 상호작용 점수 (실제 감지 비율 기반)
-    const personConfidence = videoAnalysis.personDetected ? 1.0 : 0.0;
-    const faceRatio = Math.min(videoAnalysis.facesDetected / 2, 1.0); // 2명 기준 정규화
-    const physicalInteraction = Math.round(
-      (personConfidence * 40) +        // 사람 감지 40점
-      (faceRatio * 35) +               // 얼굴 감지 비율 35점  
-      (videoAnalysis.duration > 60 ? 25 : 15)  // 충분한 길이 25점
+    return Math.round(diversityScore + sharingScore + creativityScore);
+  }
+
+  private calculateOverallScore(videoAnalysis: any, audioAnalysis: any, integratedAnalysis: any): number {
+    const videoScore = Math.min(
+      (videoAnalysis.participantCount > 0 ? 25 : 0) +
+      (videoAnalysis.duration > 60 ? 15 : videoAnalysis.duration * 0.25) +
+      (videoAnalysis.objectsDetected > 0 ? 10 : 0), 50
     );
-    
-    // 감정적 연결 점수 (얼굴과 음성 데이터 기반)
-    const faceEngagement = videoAnalysis.facesDetected > 0 ? Math.min(videoAnalysis.facesDetected * 20, 40) : 0;
-    const speechEngagement = Math.min((audioAnalysis.totalWords / 50) * 30, 30); // 50단어 기준
-    const speakerInteraction = audioAnalysis.speakerCount > 1 ? 30 : 10;
-    const emotionalConnection = Math.round(faceEngagement + speechEngagement + speakerInteraction);
-    
-    // 언어적 상호작용 점수 (실제 대화 데이터 기반)
-    const wordDensity = audioAnalysis.totalWords / Math.max(videoAnalysis.duration, 30) * 60; // 분당 단어수
-    const conversationScore = audioAnalysis.speakerCount > 1 ? 40 : 20;
-    const wordScore = Math.min(wordDensity * 2, 40); // 분당 20단어면 만점
-    const balanceScore = audioAnalysis.conversationBalance * 20;
-    const languageInteraction = Math.round(conversationScore + wordScore + balanceScore);
-    
-    // 놀이 패턴 품질 점수 (객체와 상호작용 기반)
-    const objectEngagement = Math.min(videoAnalysis.objectsDetected * 10, 40); // 객체당 10점
-    const durationBonus = videoAnalysis.duration > 120 ? 30 : (videoAnalysis.duration > 60 ? 20 : 10);
-    const interactionBonus = (physicalInteraction + emotionalConnection) > 120 ? 30 : 20;
-    const playPatternQuality = Math.round(objectEngagement + durationBonus + interactionBonus);
-    
-    // 최종 점수 정규화 (0-100 범위)
-    const normalizedScores = {
-      physicalInteraction: Math.max(0, Math.min(100, physicalInteraction)),
-      emotionalConnection: Math.max(0, Math.min(100, emotionalConnection)), 
-      languageInteraction: Math.max(0, Math.min(100, languageInteraction)),
-      playPatternQuality: Math.max(0, Math.min(100, playPatternQuality))
-    };
-    
-    logger.info(`🔗 Real data analysis: physical=${normalizedScores.physicalInteraction}, emotional=${normalizedScores.emotionalConnection}, language=${normalizedScores.languageInteraction}, play=${normalizedScores.playPatternQuality}`);
-    
-    return normalizedScores;
-  }
-  
-  /**
-   * 📊 전체 점수 계산 (실제 데이터 품질 기반)
-   */
-  private calculateOverallScore(
-    videoAnalysis: UnifiedAnalysisResult['videoAnalysis'],
-    audioAnalysis: UnifiedAnalysisResult['audioAnalysis'],
-    integratedAnalysis: UnifiedAnalysisResult['integratedAnalysis']
-  ): number {
-    // 데이터 품질에 따른 가중치 조정
-    const dataQualityMultiplier = this.calculateDataQualityMultiplier(videoAnalysis, audioAnalysis);
-    
-    const weights = {
-      physical: 0.25,
-      emotional: 0.25,  
-      language: 0.25,
-      play: 0.25
-    };
-    
-    const rawScore = Math.round(
-      integratedAnalysis.physicalInteraction * weights.physical +
-      integratedAnalysis.emotionalConnection * weights.emotional +
-      integratedAnalysis.languageInteraction * weights.language +
-      integratedAnalysis.playPatternQuality * weights.play
+
+    const audioScore = Math.min(
+      (audioAnalysis.totalUtterances * 0.5) +
+      (audioAnalysis.uniqueWords > 20 ? 10 : audioAnalysis.uniqueWords * 0.5), 25
     );
-    
-    // 데이터 품질에 따른 최종 점수 조정
-    const adjustedScore = Math.round(rawScore * dataQualityMultiplier);
-    
-    // 최소/최대 점수는 실제 데이터 가용성에 따라 결정
-    const minScore = audioAnalysis.totalWords > 0 && videoAnalysis.personDetected ? 30 : 10;
-    const maxScore = dataQualityMultiplier > 0.8 ? 100 : 85;
-    
-    return Math.max(minScore, Math.min(maxScore, adjustedScore));
+
+    const interactionScore = Math.round(
+      (integratedAnalysis.physicalInteraction.proximityScore * 0.3) +
+      (integratedAnalysis.emotionalInteraction.engagementScore * 0.3) +
+      (integratedAnalysis.playPatterns.overallScore * 0.4)
+    );
+
+    const total = videoScore + audioScore + Math.min(interactionScore, 25);
+    return Math.min(Math.round(total), 100);
   }
-  
-  /**
-   * 📈 데이터 품질에 따른 점수 보정 계수 계산
-   */
-  private calculateDataQualityMultiplier(
-    videoAnalysis: UnifiedAnalysisResult['videoAnalysis'],
-    audioAnalysis: UnifiedAnalysisResult['audioAnalysis']
-  ): number {
-    let qualityScore = 0.5; // 기본 50%
-    
-    // 비디오 데이터 품질
-    if (videoAnalysis.personDetected) qualityScore += 0.2;
-    if (videoAnalysis.facesDetected > 0) qualityScore += 0.1;
-    if (videoAnalysis.objectsDetected > 0) qualityScore += 0.1;
-    if (videoAnalysis.duration > 60) qualityScore += 0.1;
-    
-    // 오디오 데이터 품질
-    if (audioAnalysis.totalWords > 0) qualityScore += 0.1;
-    if (audioAnalysis.speakerCount > 1) qualityScore += 0.1;
-    
-    return Math.min(1.0, qualityScore);
+
+  private calculateInteractionQuality(integratedAnalysis: any): number {
+    const physicalQuality = integratedAnalysis.physicalInteraction.proximityScore;
+    const emotionalQuality = integratedAnalysis.emotionalInteraction.engagementScore;
+    const languageQuality = Math.min(integratedAnalysis.languageInteraction.conversationPatterns.turnCount * 2, 50);
+    const playQuality = integratedAnalysis.playPatterns.overallScore;
+
+    const avgQuality = (physicalQuality + emotionalQuality + languageQuality + playQuality) / 4;
+    return Math.round(avgQuality);
   }
-  
-  /**
-   * 💡 주요 발견사항 생성 (동적 조건 기반)
-   */
-  private generateKeyFindings(
-    videoAnalysis: UnifiedAnalysisResult['videoAnalysis'],
-    audioAnalysis: UnifiedAnalysisResult['audioAnalysis'],
-    integratedAnalysis: UnifiedAnalysisResult['integratedAnalysis']
-  ): string[] {
+
+  private generateKeyFindings(videoAnalysis: any, audioAnalysis: any, integratedAnalysis: any): string[] {
     const findings: string[] = [];
-    
-    // 비디오 분석 기반 (실제 감지 데이터)
-    if (videoAnalysis.personDetected) {
-      findings.push('영상에서 사람이 명확하게 감지되어 상호작용 분석이 가능했습니다.');
+
+    // 비디오 분석 기반 발견사항
+    if (videoAnalysis.participantCount >= 2) {
+      findings.push(`${videoAnalysis.participantCount}명의 참여자가 ${videoAnalysis.duration.toFixed(1)}초 동안 상호작용했습니다.`);
     }
-    
-    if (videoAnalysis.facesDetected > 1) {
-      findings.push(`${videoAnalysis.facesDetected}명의 참여자 얼굴이 감지되어 표정 및 감정 분석이 수행되었습니다.`);
+
+    // 신체적 상호작용
+    const physical = integratedAnalysis.physicalInteraction;
+    if (physical.proximityScore > 70) {
+      findings.push('부모와 자녀가 가까운 거리에서 활발한 신체적 상호작용을 보였습니다.');
     }
-    
-    if (videoAnalysis.objectsDetected > 3) {
-      findings.push(`${videoAnalysis.objectsDetected}개의 놀이 관련 객체가 감지되어 다양한 놀이 활동이 확인되었습니다.`);
+    if (physical.synchronizedEvents.length > 0) {
+      findings.push(`${physical.synchronizedEvents.length}회의 움직임 동기화가 관찰되었습니다.`);
     }
-    
-    // 음성 분석 기반 (실제 대화 데이터)
-    if (audioAnalysis.speakerCount >= 2) {
-      findings.push(`${audioAnalysis.speakerCount}명의 화자가 감지되어 대화형 상호작용이 관찰되었습니다.`);
+
+    // 언어적 상호작용
+    const language = integratedAnalysis.languageInteraction;
+    if (language.conversationPatterns.turnCount > 10) {
+      findings.push(`${language.conversationPatterns.turnCount}회의 대화 교환으로 활발한 언어적 상호작용을 보였습니다.`);
     }
-    
-    const wordDensity = audioAnalysis.totalWords / Math.max(videoAnalysis.duration, 30) * 60;
-    if (wordDensity > 15) { // 분당 15단어 이상
-      findings.push(`분당 ${Math.round(wordDensity)}단어의 활발한 언어적 상호작용이 관찰되었습니다.`);
+
+    // 감정적 상호작용
+    const emotional = integratedAnalysis.emotionalInteraction;
+    if (emotional.interactionQuality === 'high') {
+      findings.push('높은 수준의 감정적 유대감과 참여도가 관찰되었습니다.');
     }
-    
-    // 통합 분석 기반 (동적 임계값)
-    const avgScore = (integratedAnalysis.physicalInteraction + integratedAnalysis.emotionalConnection + 
-                     integratedAnalysis.languageInteraction + integratedAnalysis.playPatternQuality) / 4;
-    
-    if (integratedAnalysis.physicalInteraction > avgScore * 1.2) {
-      findings.push('물리적 근접성과 상호작용이 특히 활발한 수준으로 관찰되었습니다.');
+
+    // 놀이 패턴
+    const play = integratedAnalysis.playPatterns;
+    if (play.toysDetected.length > 2) {
+      findings.push(`${play.toysDetected.length}가지 장난감을 활용한 다양한 놀이 활동이 이루어졌습니다.`);
     }
-    
-    if (integratedAnalysis.emotionalConnection > avgScore * 1.2) {
-      findings.push('감정적 교감과 연결성이 평균보다 우수한 것으로 분석되었습니다.');
-    }
-    
-    if (integratedAnalysis.languageInteraction > avgScore * 1.2) {
-      findings.push('언어적 상호작용과 대화 품질이 평균보다 높은 수준입니다.');
-    }
-    
-    // 분석 품질에 따른 메시지
-    const dataQuality = this.calculateDataQualityMultiplier(videoAnalysis, audioAnalysis);
-    if (dataQuality > 0.8) {
-      findings.push('고품질 분석 데이터를 바탕으로 신뢰할 수 있는 결과를 제공합니다.');
-    } else if (dataQuality < 0.5) {
-      findings.push('분석 가능한 데이터가 제한적이어서 기본적인 분석만 수행되었습니다.');
-    }
-    
-    return findings.length > 0 ? findings : ['기본적인 놀이 상호작용이 관찰되었습니다.'];
+
+    return findings.slice(0, 5); // 최대 5개
   }
-  
-  /**
-   * 💡 추천사항 생성 (동적 분석 기반)
-   */
-  private generateRecommendations(
-    integratedAnalysis: UnifiedAnalysisResult['integratedAnalysis'],
-    overallScore: number
-  ): string[] {
+
+  private generateRecommendations(integratedAnalysis: any, overallScore: number): string[] {
     const recommendations: string[] = [];
-    
-    // 각 영역별 점수와 전체 평균 비교
-    const avgScore = (integratedAnalysis.physicalInteraction + integratedAnalysis.emotionalConnection + 
-                     integratedAnalysis.languageInteraction + integratedAnalysis.playPatternQuality) / 4;
-    
-    const excellentThreshold = Math.max(80, avgScore * 1.1);
-    const goodThreshold = Math.max(60, avgScore * 0.9);
-    
-    // 전체 점수 기반 일반 추천사항
-    if (overallScore >= excellentThreshold) {
-      recommendations.push('전반적으로 우수한 상호작용 패턴을 보이고 있습니다.');
-      recommendations.push('현재의 긍정적인 접근 방식을 계속 유지하며, 새로운 놀이 활동도 시도해보세요.');
-    } else if (overallScore >= goodThreshold) {
-      recommendations.push('양호한 상호작용이 관찰되며, 몇 가지 영역에서 개선 가능성이 있습니다.');
-    } else {
-      recommendations.push('상호작용의 질을 높이기 위한 개선이 필요합니다.');
-      recommendations.push('아이와의 놀이에 더 적극적으로 참여하고 반응해보세요.');
+
+    if (overallScore < 60) {
+      recommendations.push('전체적인 상호작용을 늘리기 위해 함께하는 시간을 증가시켜 보세요.');
     }
-    
-    // 영역별 구체적 추천사항 (상대적 비교 기반)
-    if (integratedAnalysis.languageInteraction < avgScore * 0.8) {
-      recommendations.push('언어적 상호작용을 늘려보세요. 아이와 더 많은 대화를 나누고, 놀이 중 설명과 질문을 활용해보세요.');
+
+    const physical = integratedAnalysis.physicalInteraction;
+    if (physical.activityLevel === 'low') {
+      recommendations.push('더 활동적인 놀이를 통해 신체적 상호작용을 늘려보세요.');
     }
-    
-    if (integratedAnalysis.physicalInteraction < avgScore * 0.8) {
-      recommendations.push('물리적 참여를 늘려보세요. 아이와 더 가까이에서 함께 놀이에 직접 참여해보세요.');
+
+    const language = integratedAnalysis.languageInteraction;
+    if (language.utteranceTypes.questions < 5) {
+      recommendations.push('자녀에게 더 많은 질문을 하여 대화를 유도해보세요.');
     }
-    
-    if (integratedAnalysis.emotionalConnection < avgScore * 0.8) {
-      recommendations.push('감정적 연결을 강화해보세요. 아이의 감정에 더 민감하게 반응하고 공감을 표현해보세요.');
+
+    const play = integratedAnalysis.playPatterns;
+    if (play.sharingRatio < 0.5) {
+      recommendations.push('함께 장난감을 사용하는 협력 놀이를 더 늘려보세요.');
     }
-    
-    if (integratedAnalysis.playPatternQuality < avgScore * 0.8) {
-      recommendations.push('놀이 패턴을 다양화해보세요. 다른 종류의 놀잇감을 활용하거나 새로운 놀이 방식을 시도해보세요.');
-    }
-    
-    // 분석 데이터 품질에 따른 추가 추천사항
-    if (recommendations.length < 3) {
-      recommendations.push('더 정확한 분석을 위해 다양한 상황에서의 놀이 영상을 추가로 분석해보세요.');
-    }
-    
-    return recommendations;
+
+    return recommendations.slice(0, 4);
   }
-  
-  /**
-   * 🎯 신뢰도 계산
-   */
-  private calculateConfidence(
-    videoAnalysis: UnifiedAnalysisResult['videoAnalysis'],
-    audioAnalysis: UnifiedAnalysisResult['audioAnalysis']
-  ): number {
-    let confidence = 0.5; // 기본 신뢰도
-    
-    // 비디오 데이터 품질에 따른 신뢰도
-    if (videoAnalysis.personDetected) { confidence += 0.2; }
-    if (videoAnalysis.facesDetected > 0) { confidence += 0.1; }
-    if (videoAnalysis.objectsDetected > 0) { confidence += 0.1; }
-    
-    // 음성 데이터 품질에 따른 신뢰도
-    if (audioAnalysis.speakerCount >= 2) { confidence += 0.1; }
-    if (audioAnalysis.totalWords > 50) { confidence += 0.1; }
-    
-    return Math.min(0.95, confidence); // 최대 95%
+
+  private calculateConfidence(videoAnalysis: unknown, audioAnalysis: unknown): number {
+    let confidence = 0;
+
+    const videoData = videoAnalysis as Record<string, unknown>;
+    const audioData = audioAnalysis as Record<string, unknown>;
+
+    // 비디오 데이터 품질
+    if (videoData.participantCount && (videoData.participantCount as number) > 0) {
+      confidence += 30;
+    }
+    if (videoData.duration && (videoData.duration as number) > 60) {
+      confidence += 20;
+    }
+    if (videoData.objectsDetected && (videoData.objectsDetected as number) > 0) {
+      confidence += 20;
+    }
+
+    // 음성 데이터 품질  
+    if (audioData.totalUtterances && (audioData.totalUtterances as number) > 5) {
+      confidence += 20;
+    }
+    if (audioData.uniqueWords && (audioData.uniqueWords as number) > 10) {
+      confidence += 10;
+    }
+
+    return Math.min(confidence, 100);
   }
-  
-  /**
-   * 📊 데이터 품질 평가
-   */
-  private assessDataQuality(videoResults: VideoIntelligenceResults): string {
+
+  private assessDataQuality(extractedData: ExtractedAnalysisData): string {
+    const { personMovements, speechData, faceInteractions, objectEvents } = extractedData;
+    
     let score = 0;
     
-    // Video analysis scoring
-    if (videoResults.objectTracking?.length > 0) { score += 20; }
-    if (videoResults.faceDetection?.length > 0) { score += 15; }
-    if (videoResults.personDetection?.length > 0) { score += 25; }
+    // 사람 감지 품질
+    if (personMovements.length >= 2) {
+      score += 25;
+    } else if (personMovements.length === 1) {
+      score += 15;
+    }
     
-    // Audio analysis scoring  
-    if (videoResults.speechTranscription?.length > 0) { score += 15; }
-
-    // Integration bonus scoring
-    if (videoResults.personDetection?.length > 0 && videoResults.speechTranscription?.length > 0) { score += 10; }
-    if (videoResults.faceDetection?.length > 0 && videoResults.speechTranscription?.length > 0) { score += 5; }
-    if (videoResults.objectTracking?.length > 5 && videoResults.speechTranscription?.length > 0) { score += 8; }
-
-    if (score >= 90) { return 'excellent'; }
-    if (score >= 70) { return 'good'; }
-    if (score >= 50) { return 'average'; }
+    // 음성 데이터 품질
+    if (speechData.length > 10) {
+      score += 25;
+    } else if (speechData.length > 5) {
+      score += 15;
+    } else if (speechData.length > 0) {
+      score += 10;
+    }
+    
+    // 얼굴 감지 품질
+    if (faceInteractions.length > 50) {
+      score += 25;
+    } else if (faceInteractions.length > 10) {
+      score += 15;
+    } else if (faceInteractions.length > 0) {
+      score += 10;
+    }
+    
+    // 객체 감지 품질
+    if (objectEvents.length > 3) {
+      score += 25;
+    } else if (objectEvents.length > 1) {
+      score += 15;
+    } else if (objectEvents.length > 0) {
+      score += 10;
+    }
+    
+    if (score >= 80) {
+      return 'excellent';
+    }
+    if (score >= 60) {
+      return 'good';
+    }
+    if (score >= 40) {
+      return 'fair';
+    }
     return 'poor';
-  }
-  
-  /**
-   * 🎯 비디오 길이 추정 (여러 데이터 소스 활용)
-   */
-  private estimateDuration(videoResults: VideoIntelligenceResults): number {
-    let maxDuration = 0;
-    
-    // 1. Shot changes에서 길이 추정 (가장 정확)
-    if (videoResults.shotChanges && videoResults.shotChanges.length > 0) {
-      const lastShot = videoResults.shotChanges[videoResults.shotChanges.length - 1];
-      if (lastShot.endTimeOffset) {
-        maxDuration = Math.max(maxDuration, parseFloat(lastShot.endTimeOffset.toString()));
-      }
-    }
-    
-    // 2. Object tracking에서 길이 추정
-    if (videoResults.objectTracking) {
-      videoResults.objectTracking.forEach((obj: any) => {
-        obj.frames?.forEach((frame: any) => {
-          if (frame.timeOffset) {
-            const timeSeconds = parseFloat(frame.timeOffset.seconds ?? '0') + 
-                               parseFloat(frame.timeOffset.nanos ?? '0') / 1e9;
-            maxDuration = Math.max(maxDuration, timeSeconds);
-          }
-        });
-      });
-    }
-    
-    // 3. Speech transcription에서 길이 추정
-    const speechData = videoResults.speechTranscription || [];
-    speechData.forEach((segment: any) => {
-      segment.alternatives?.forEach((alt: any) => {
-        alt.words?.forEach((word: any) => {
-          if (word.endTime) {
-            const endTime = parseFloat(word.endTime.seconds ?? '0') + 
-                           parseFloat(word.endTime.nanos ?? '0') / 1e9;
-            maxDuration = Math.max(maxDuration, endTime);
-          }
-        });
-      });
-    });
-    
-    // 4. Face detection에서 길이 추정
-    if (videoResults.faceDetection) {
-      videoResults.faceDetection.forEach((face: any) => {
-        face.tracks?.forEach((track: any) => {
-          if (track.segment?.endTimeOffset) {
-            const endTime = parseFloat(track.segment.endTimeOffset.seconds ?? '0') + 
-                           parseFloat(track.segment.endTimeOffset.nanos ?? '0') / 1e9;
-            maxDuration = Math.max(maxDuration, endTime);
-          }
-        });
-      });
-    }
-    
-    // 5. Person detection에서 길이 추정
-    if (videoResults.personDetection) {
-      videoResults.personDetection.forEach((person: any) => {
-        person.tracks?.forEach((track: any) => {
-          if (track.segment?.endTimeOffset) {
-            const endTime = parseFloat(track.segment.endTimeOffset.seconds ?? '0') + 
-                           parseFloat(track.segment.endTimeOffset.nanos ?? '0') / 1e9;
-            maxDuration = Math.max(maxDuration, endTime);
-          }
-        });
-      });
-    }
-    
-    // 최종 길이 결정 (최소 30초, 최대 600초 제한)
-    const finalDuration = maxDuration > 0 ? maxDuration : 60; // 기본 1분
-    const clampedDuration = Math.max(30, Math.min(600, finalDuration));
-    
-    logger.info(`🎬 Video duration estimated: ${clampedDuration}s (from ${maxDuration}s)`);
-    
-    return Math.round(clampedDuration);
   }
 } 

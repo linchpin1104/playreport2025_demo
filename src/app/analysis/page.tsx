@@ -144,7 +144,9 @@ function AnalysisPageContent() {
 
   // 폴링 시작
   const startPolling = useCallback((statusUrl?: string, interval: number = 15) => {
-    if (!statusUrl || !sessionId) return;
+    if (!statusUrl || !sessionId) {
+      return;
+    }
     
     console.log(`🔄 Starting polling: ${statusUrl} (every ${interval}s)`);
     
@@ -170,6 +172,20 @@ function AnalysisPageContent() {
         console.log(`🔍 Polling attempt ${attempts}/${maxAttempts}...`);
         const statusResponse = await fetch(statusUrl);
         
+        // 404: 세션이 존재하지 않음 - 즉시 에러 처리
+        if (statusResponse.status === 404) {
+          console.log(`❌ Session not found (404)`);
+          setError('세션을 찾을 수 없습니다. 영상이 업로드되지 않았거나 세션이 만료되었을 수 있습니다.\n결과 페이지로 자동 이동을 시도합니다...');
+          stopPolling();
+          analysisStarted.current = false;
+          // 결과 페이지로 이동 시도
+          setTimeout(() => {
+            router.push(`/results?sessionId=${sessionId}`);
+          }, 3000);
+          return;
+        }
+        
+        // 기타 HTTP 에러
         if (!statusResponse.ok) {
           throw new Error(`Status check failed: ${statusResponse.status}`);
         }
@@ -188,7 +204,7 @@ function AnalysisPageContent() {
             progress: step.step === 'video_audio_analysis' ? statusResult.progress : step.progress,
             status: statusResult.status === 'completed' ? 'completed' : 
                    statusResult.status === 'failed' ? 'error' : 'in_progress'
-          }))
+          })) || []
         }));
 
         if (statusResult.status === 'completed') {
@@ -206,9 +222,13 @@ function AnalysisPageContent() {
 
       } catch (error) {
         console.error(`❌ Polling error (attempt ${attempts}):`, error);
-        if (attempts > 5) { // 5회 연속 실패시 중단
+        
+        // 네트워크 에러나 5회 연속 실패시 중단
+        if (attempts > 5) {
+          console.log(`❌ Too many polling failures (${attempts} attempts)`);
           setError('서버와의 연결에 문제가 있습니다.');
           stopPolling();
+          analysisStarted.current = false;
         }
       }
     }, interval * 1000);

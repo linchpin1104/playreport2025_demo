@@ -1,863 +1,772 @@
-/**
- * 놀이 패턴 분석 모듈
- * 장난감 사용, 활동 전환, 협력 놀이 패턴 분석
- */
-
 export interface ObjectTrack {
-  entityId: string;
+  entity_id: string;
   category: string;
   time: number;
   confidence: number;
-  boundingBox: {
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-  };
-  attributes?: Array<{
-    name: string;
-    value: string;
-    confidence: number;
-  }>;
-}
-
-export interface ToyUsagePattern {
-  toyId: string;
-  toyType: string;
-  totalDuration: number;
-  usageIntensity: number;
-  sharedUsage: number;
-  transitions: Array<{
-    time: number;
-    from: string;
-    to: string;
-    duration: number;
-  }>;
-}
-
-export interface ActivityTransition {
-  time: number;
-  fromActivity: string;
-  toActivity: string;
-  duration: number;
-  participants: string[];
-  transitionType: 'smooth' | 'abrupt' | 'guided';
-}
-
-export interface CooperativePattern {
-  type: 'parallel' | 'collaborative' | 'turn_taking' | 'imitation';
-  startTime: number;
-  endTime: number;
-  participants: string[];
-  intensity: number;
-  success: boolean;
 }
 
 export interface PlayPatternResult {
-  toyUsageAnalysis: {
-    toysDetected: string[];
-    usagePatterns: ToyUsagePattern[];
-    sharingRatio: number;
-    dominantToys: Array<{
-      toyId: string;
-      usageTime: number;
-      popularity: number;
-    }>;
-  };
-  activityTransitions: ActivityTransition[];
-  cooperativePatterns: CooperativePattern[];
+  toysDetected: string[];
+  usageDuration: Record<string, number>;
+  sharingRatio: number;
+  toyTransitions: Array<{from: string; to: string; time: number}>;
+  activityTransitions: Array<{time: number; type: string; description: string}>;
+  cooperativePatterns: Array<{time: number; duration: number; participants: string[]}>;
   creativityIndicators: {
-    noveltyScore: number;
-    variabilityScore: number;
-    imaginativePlayScore: number;
-    problemSolvingScore: number;
-  };
-  developmentMetrics: {
-    fineMotorSkills: number;
-    grossMotorSkills: number;
-    socialInteraction: number;
-    cognitiveFlexibility: number;
+    diversityScore: number;
+    innovationEvents: number;
+    explorationRatio: number;
   };
   overallScore: number;
 }
 
 export class PlayPatternAnalyzer {
-  private readonly minActivityDuration = 5; // 최소 활동 지속 시간(초)
-  private readonly transitionThreshold = 0.3; // 활동 전환 임계값
-  private readonly cooperativeThreshold = 0.4; // 협력 놀이 임계값
+  private readonly minActivityDuration = 10;
+  private readonly transitionThreshold = 0.3;
+  private readonly toyCategories = new Set(['toy', 'ball', 'doll', 'block', 'car', 'book', 'puzzle']);
 
-  // 장난감 카테고리 매핑
-  private readonly toyCategories: Record<string, string> = {
-    'Building Block': 'construction',
-    'Toy Car': 'vehicle',
-    'Doll': 'pretend_play',
-    'Ball': 'active_play',
-    'Puzzle': 'cognitive',
-    'Book': 'educational',
-    'Musical Instrument': 'musical',
-    'Art Supply': 'creative',
-    'Stuffed Animal': 'comfort',
-    'Game': 'social'
-  };
-
-  // 활동 유형 정의
-  private readonly activityTypes: Record<string, string> = {
-    'construction': '구성놀이',
-    'vehicle': '운동놀이',
-    'pretend_play': '역할놀이',
-    'active_play': '신체놀이',
-    'cognitive': '인지놀이',
-    'educational': '학습놀이',
-    'musical': '음악놀이',
-    'creative': '창작놀이',
-    'comfort': '안정놀이',
-    'social': '사회놀이'
-  };
-
-  /**
-   * 놀이 패턴 분석 메인 메서드
-   */
   async analyzePlayPatterns(
-    objectTrackingData: unknown[],
-    personDetectionData: unknown[],
-    sessionMetadata: Record<string, unknown>
+    objectTrackingData: any[],
+    personDetectionData: any[],
+    sessionMetadata: any
   ): Promise<PlayPatternResult> {
+    console.log('🧸 Starting play pattern analysis');
+    console.log(`📊 Object tracking data: ${objectTrackingData?.length || 0} entries, Person data: ${personDetectionData?.length || 0} entries`);
+
+    if (!objectTrackingData || objectTrackingData.length === 0) {
+      console.warn('⚠️ No object tracking data available');
+      return this.createEmptyResult();
+    }
+
     try {
-      console.log('🔍 놀이 패턴 분석 시작');
-      console.log('📊 입력 데이터:', {
-        objectTrackingLength: objectTrackingData?.length || 0,
-        personDetectionLength: personDetectionData?.length || 0,
-        sessionMetadata
-      });
+      // 1. 장난감 사용 패턴 분석
+      const toyUsage = this.analyzeToyUsageFromRealData(objectTrackingData);
+      
+      // 2. 활동 전환 분석
+      const activityTransitions = this.analyzeActivityTransitionsFromRealData(objectTrackingData, personDetectionData);
+      
+      // 3. 협력 놀이 패턴 감지
+      const cooperativePatterns = this.detectCooperativePatternsFromRealData(objectTrackingData, personDetectionData);
+      
+      // 4. 창의성 지표 계산
+      const creativityIndicators = this.calculateCreativityFromRealData(objectTrackingData);
+      
+      // 5. 전체 점수 계산
+      const overallScore = this.calculateOverallScore(toyUsage, activityTransitions, cooperativePatterns, creativityIndicators);
 
-      // 데이터 처리
-      const objectTracks = this.processObjectTrackingData(objectTrackingData);
-      const personTracks = this.processPersonTrackingData(personDetectionData);
-
-      console.log('📊 처리된 데이터:', {
-        objectTracksLength: objectTracks.length,
-        personTracksLength: personTracks.length
-      });
-
-      // 데이터가 없는 경우 기본 놀이 시나리오 생성
-      if (objectTracks.length === 0 && personTracks.length === 0) {
-        console.log('⚠️ 놀이 데이터 없음 - 기본 놀이 시나리오 생성');
-        return this.generateBasicPlayPattern();
-      }
-
-      // 장난감 사용 패턴 분석
-      const toyUsagePatterns = this.analyzeToyUsagePatterns(objectTracks, personTracks);
-
-      // 활동 전환 분석
-      const activityTransitions = this.analyzeActivityTransitions(objectTracks, personTracks);
-
-      // 협력 놀이 패턴 감지
-      const cooperativePatterns = this.detectCooperativePatterns(objectTracks, personTracks);
-
-      // 창의성 지표 계산
-      const creativityIndicators = this.calculateCreativityIndicators(
-        objectTracks,
-        toyUsagePatterns,
-        activityTransitions
-      );
-
-      // 전체 점수 계산
-      const overallScore = this.calculateOverallScore(
-        toyUsagePatterns,
-        activityTransitions,
-        cooperativePatterns,
-        creativityIndicators
-      );
-
-      console.log('✅ 놀이 패턴 분석 완료:', {
-        toyUsageCount: toyUsagePatterns.length,
-        activityTransitionCount: activityTransitions.length,
-        cooperativePatternCount: cooperativePatterns.length,
+      console.log('✅ Play pattern analysis completed', {
+        toysDetected: toyUsage.toys.length,
+        sharingRatio: `${(toyUsage.sharingRatio * 100).toFixed(1)}%`,
+        transitions: activityTransitions.length,
+        cooperativeEvents: cooperativePatterns.length,
         overallScore
       });
 
       return {
-        toyUsageAnalysis: {
-          toysDetected: toyUsagePatterns.toysDetected,
-          usagePatterns: toyUsagePatterns.usagePatterns,
-          sharingRatio: toyUsagePatterns.sharingRatio,
-          dominantToys: toyUsagePatterns.dominantToys
-        },
+        toysDetected: toyUsage.toys,
+        usageDuration: toyUsage.duration,
+        sharingRatio: toyUsage.sharingRatio,
+        toyTransitions: toyUsage.transitions,
         activityTransitions,
         cooperativePatterns,
         creativityIndicators,
-        developmentMetrics: this.calculateDevelopmentMetrics(toyUsagePatterns, activityTransitions, cooperativePatterns),
         overallScore
       };
-
     } catch (error) {
-      console.error('❌ 놀이 패턴 분석 오류:', error);
-      return this.getDefaultResult();
+      console.error('❌ Error in play pattern analysis:', error);
+      return this.createEmptyResult();
     }
   }
 
   /**
-   * 객체 추적 데이터 처리
+   * 🔄 추출된 데이터로 놀이 패턴 분석 (신규 메서드)
    */
-  private processObjectTrackingData(objectTrackingData: unknown[]): ObjectTrack[] {
-    const objectTracks: ObjectTrack[] = [];
-    
-    if (!objectTrackingData || objectTrackingData.length === 0) {
-      return objectTracks;
-    }
-    
-    try {
-      for (const tracking of objectTrackingData) {
-        const trackingCast = tracking as any;
-        
-        if (trackingCast.tracks) {
-          for (const track of trackingCast.tracks) {
-            if (track.timestampedObjects) {
-              for (const obj of track.timestampedObjects) {
-                if (obj.normalizedBoundingBox) {
-                  const timeValue = typeof obj.timeOffset === 'number' ? 
-                    obj.timeOffset : 
-                    (obj.timeOffset?.seconds || 0) + (obj.timeOffset?.nanos || 0) / 1000000000;
-                  
-                  objectTracks.push({
-                    entityId: track.entityId || `object_${objectTracks.length}`,
-                    category: track.category || 'toy',
-                    time: timeValue,
-                    confidence: obj.confidence || 0.5,
-                    boundingBox: {
-                      left: obj.normalizedBoundingBox.left || 0,
-                      top: obj.normalizedBoundingBox.top || 0,
-                      right: obj.normalizedBoundingBox.right || 1,
-                      bottom: obj.normalizedBoundingBox.bottom || 1
-                    },
-                    attributes: obj.attributes || []
-                  });
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('❌ 객체 추적 데이터 처리 오류:', error);
-    }
-    
-    return objectTracks;
-  }
-
-  /**
-   * 사람 추적 데이터 처리
-   */
-  private processPersonTrackingData(personDetectionData: unknown[]): any[] {
-    const personTracks: any[] = [];
-    
-    if (!personDetectionData || personDetectionData.length === 0) {
-      return personTracks;
-    }
-    
-    try {
-      for (const detection of personDetectionData) {
-        const detectionCast = detection as any;
-        
-        if (detectionCast.tracks) {
-          for (const track of detectionCast.tracks) {
-            if (track.timestampedObjects) {
-              for (const obj of track.timestampedObjects) {
-                if (obj.normalizedBoundingBox) {
-                  const timeValue = typeof obj.timeOffset === 'number' ? 
-                    obj.timeOffset : 
-                    (obj.timeOffset?.seconds || 0) + (obj.timeOffset?.nanos || 0) / 1000000000;
-                  
-                  personTracks.push({
-                    personId: track.personId || `person_${personTracks.length}`,
-                    time: timeValue,
-                    boundingBox: {
-                      left: obj.normalizedBoundingBox.left || 0,
-                      top: obj.normalizedBoundingBox.top || 0,
-                      right: obj.normalizedBoundingBox.right || 1,
-                      bottom: obj.normalizedBoundingBox.bottom || 1
-                    },
-                    confidence: obj.confidence || 0.5
-                  });
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('❌ 사람 추적 데이터 처리 오류:', error);
-    }
-    
-    return personTracks;
-  }
-
-  /**
-   * 기본 놀이 패턴 생성
-   */
-  private generateBasicPlayPattern(): PlayPatternResult {
-    console.log('🎮 기본 놀이 패턴 시나리오 생성');
-    
-    // 일반적인 부모-자녀 놀이 시나리오
-    const toyUsagePatterns: ToyUsagePattern[] = [
-      {
-        toyId: 'blocks',
-        toyType: 'building',
-        totalDuration: 180,
-        usageIntensity: 0.8,
-        sharedUsage: 0.7,
-        transitions: [
-          { time: 30, from: 'individual', to: 'shared', duration: 60 },
-          { time: 120, from: 'shared', to: 'individual', duration: 40 }
-        ]
-      },
-      {
-        toyId: 'car',
-        toyType: 'vehicle',
-        totalDuration: 90,
-        usageIntensity: 0.6,
-        sharedUsage: 0.5,
-        transitions: [
-          { time: 200, from: 'blocks', to: 'car', duration: 45 }
-        ]
-      }
-    ];
-
-    const activityTransitions: ActivityTransition[] = [
-      {
-        time: 0,
-        fromActivity: 'exploring',
-        toActivity: 'building',
-        duration: 30,
-        participants: ['parent', 'child'],
-        transitionType: 'smooth'
-      },
-      {
-        time: 150,
-        fromActivity: 'building',
-        toActivity: 'pretend_play',
-        duration: 45,
-        participants: ['parent', 'child'],
-        transitionType: 'guided'
-      }
-    ];
-
-    const cooperativePatterns: CooperativePattern[] = [
-      {
-        type: 'collaborative',
-        startTime: 60,
-        endTime: 140,
-        participants: ['parent', 'child'],
-        intensity: 0.75,
-        success: true
-      },
-      {
-        type: 'turn_taking',
-        startTime: 200,
-        endTime: 280,
-        participants: ['parent', 'child'],
-        intensity: 0.65,
-        success: true
-      }
-    ];
-
-    const creativityIndicators: {
-      noveltyScore: number;
-      variabilityScore: number;
-      imaginativePlayScore: number;
-      problemSolvingScore: number;
-    } = {
-      noveltyScore: 0.72,
-      variabilityScore: 0.68,
-      imaginativePlayScore: 0.78,
-      problemSolvingScore: 0.71
-    };
-
-    return {
-      toyUsageAnalysis: {
-        toysDetected: ['blocks', 'car'],
-        usagePatterns: toyUsagePatterns,
-        sharingRatio: 0.7,
-        dominantToys: [
-          { toyId: 'blocks', usageTime: 180, popularity: 0.8 },
-          { toyId: 'car', usageTime: 90, popularity: 0.6 }
-        ]
-      },
-      activityTransitions,
-      cooperativePatterns,
-      creativityIndicators,
-      developmentMetrics: {
-        fineMotorSkills: 0.8,
-        grossMotorSkills: 0.6,
-        socialInteraction: 0.75,
-        cognitiveFlexibility: 0.7
-      },
-      overallScore: 0.72
-    };
-  }
-
-  /**
-   * 장난감 사용 패턴 분석
-   */
-  private analyzeToyUsage(objectTracks: ObjectTrack[]): {
-    toysDetected: string[];
-    usagePatterns: ToyUsagePattern[];
-    sharingRatio: number;
-    dominantToys: Array<{
-      toyId: string;
-      usageTime: number;
-      popularity: number;
-    }>;
-  } {
-    const toyData: Record<string, {
-      firstSeen: number;
-      lastSeen: number;
-      totalFrames: number;
-      sharedFrames: number;
-      category: string;
-      transitions: Array<{
+  async analyzePlayPatternsFromExtractedData(
+    objectEvents: Array<{
+      objectId: string;
+      objectName: string;
+      events: Array<{
         time: number;
-        from: string;
-        to: string;
-        duration: number;
+        confidence: number;
+        bbox: { left: number; top: number; right: number; bottom: number };
       }>;
-    }> = {};
+    }>,
+    personMovements: Array<{
+      personId: number;
+      movements: Array<{
+        time: number;
+        bbox: { left: number; top: number; right: number; bottom: number };
+        center: [number, number];
+        size: number;
+      }>;
+    }>,
+    sessionMetadata: any
+  ): Promise<PlayPatternResult> {
+    console.log('🧸 Starting play pattern analysis with extracted data');
+    console.log(`📊 Object events: ${objectEvents?.length || 0} objects, Person movements: ${personMovements?.length || 0} persons`);
 
-    // 장난감 데이터 수집
-    for (const track of objectTracks) {
-      const toyId = track.entityId;
-      const category = this.toyCategories[track.category] || 'unknown';
+    if (!objectEvents || objectEvents.length === 0) {
+      console.warn('⚠️ No object events data available');
+      return this.createEmptyResult();
+    }
+
+    try {
+      // 1. 장난감 사용 패턴 분석 (추출된 데이터)
+      const toyUsage = this.analyzeToyUsageFromExtractedData(objectEvents);
       
-      if (!toyData[toyId]) {
-        toyData[toyId] = {
-          firstSeen: track.time,
-          lastSeen: track.time,
-          totalFrames: 0,
-          sharedFrames: 0,
-          category,
-          transitions: []
-        };
-      }
+      // 2. 활동 전환 분석 (추출된 데이터)
+      const activityTransitions = this.analyzeActivityTransitionsFromExtractedData(objectEvents, personMovements);
+      
+      // 3. 협력 놀이 패턴 감지 (추출된 데이터)
+      const cooperativePatterns = this.detectCooperativePatternsFromExtractedData(objectEvents, personMovements);
+      
+      // 4. 창의성 지표 계산 (추출된 데이터)
+      const creativityIndicators = this.calculateCreativityFromExtractedData(objectEvents);
+      
+      // 5. 전체 점수 계산
+      const overallScore = this.calculateOverallScore(toyUsage, activityTransitions, cooperativePatterns, creativityIndicators);
 
-      toyData[toyId].lastSeen = track.time;
-      toyData[toyId].totalFrames++;
-
-      // 공유 여부 확인 (간단한 휴리스틱)
-      if (this.isSharedInteraction(track)) {
-        toyData[toyId].sharedFrames++;
-      }
-    }
-
-    // 사용 패턴 생성
-    const usagePatterns: ToyUsagePattern[] = [];
-    const dominantToys: Array<{
-      toyId: string;
-      usageTime: number;
-      popularity: number;
-    }> = [];
-
-    for (const [toyId, data] of Object.entries(toyData)) {
-      const duration = data.lastSeen - data.firstSeen;
-      const intensity = data.totalFrames / Math.max(duration, 1);
-      const sharedUsage = data.sharedFrames / data.totalFrames;
-
-      usagePatterns.push({
-        toyId,
-        toyType: data.category,
-        totalDuration: duration,
-        usageIntensity: intensity,
-        sharedUsage,
-        transitions: data.transitions
+      console.log('✅ Play pattern analysis completed with extracted data', {
+        toysDetected: toyUsage.toys.length,
+        sharingRatio: `${(toyUsage.sharingRatio * 100).toFixed(1)}%`,
+        transitions: activityTransitions.length,
+        cooperativeEvents: cooperativePatterns.length,
+        overallScore
       });
 
-      dominantToys.push({
-        toyId,
-        usageTime: duration,
-        popularity: intensity * (1 + sharedUsage)
-      });
+      return {
+        toysDetected: toyUsage.toys,
+        usageDuration: toyUsage.duration,
+        sharingRatio: toyUsage.sharingRatio,
+        toyTransitions: toyUsage.transitions,
+        activityTransitions,
+        cooperativePatterns,
+        creativityIndicators,
+        overallScore
+      };
+    } catch (error) {
+      console.error('❌ Error in play pattern analysis with extracted data:', error);
+      return this.createEmptyResult();
     }
-
-    // 공유 비율 계산
-    const totalSharedFrames = Object.values(toyData).reduce((sum, data) => sum + data.sharedFrames, 0);
-    const totalFrames = Object.values(toyData).reduce((sum, data) => sum + data.totalFrames, 0);
-    const sharingRatio = totalFrames > 0 ? totalSharedFrames / totalFrames : 0;
-
-    // 인기 장난감 정렬
-    dominantToys.sort((a, b) => b.popularity - a.popularity);
-
-    return {
-      toysDetected: Object.keys(toyData),
-      usagePatterns,
-      sharingRatio: Math.round(sharingRatio * 100) / 100,
-      dominantToys: dominantToys.slice(0, 5)
-    };
   }
 
-  /**
-   * 활동 전환 분석
-   */
-  private analyzeActivityTransitions(
-    objectTracks: ObjectTrack[],
-    personDetectionData: any[]
-  ): ActivityTransition[] {
-    const transitions: ActivityTransition[] = [];
-    const activitySequence: Array<{
-      time: number;
-      activity: string;
-      participants: string[];
-    }> = [];
+  private analyzeToyUsageFromRealData(objectData: any[]) {
+    const toys = new Set<string>();
+    const toyDuration: Record<string, {start: number; end: number; frames: number; interactions: number}> = {};
+    const transitions: Array<{from: string; to: string; time: number}> = [];
+
+    // 객체 추적 데이터 처리
+    const objectEvents: Array<{name: string; time: number; confidence: number}> = [];
+
+    objectData.forEach(obj => {
+      obj.tracks?.forEach((track: any) => {
+        const entityName = obj.entity?.description?.toLowerCase() || 'unknown_object';
+        
+        track.timestampedObjects?.forEach((timestampedObj: any) => {
+          const time = this.parseTimeOffset(timestampedObj.timeOffset);
+          const confidence = timestampedObj.confidence || 0.5;
+          
+          // 장난감 관련 객체인지 확인
+          const isToy = this.isToyRelated(entityName);
+          if (isToy || confidence > 0.7) { // 높은 신뢰도의 객체는 포함
+            toys.add(entityName);
+            objectEvents.push({ name: entityName, time, confidence });
+          }
+        });
+      });
+    });
 
     // 시간순 정렬
-    const sortedTracks = objectTracks.sort((a, b) => a.time - b.time);
+    objectEvents.sort((a, b) => a.time - b.time);
 
-    // 활동 시퀀스 생성
-    let currentActivity = '';
-    let currentTime = 0;
-    let currentParticipants: string[] = [];
+    // 장난감별 사용 시간 및 상호작용 계산
+    objectEvents.forEach((event, index) => {
+      const toyName = event.name;
+      
+      if (!toyDuration[toyName]) {
+        toyDuration[toyName] = { start: event.time, end: event.time, frames: 1, interactions: 0 };
+      } else {
+        toyDuration[toyName].end = event.time;
+        toyDuration[toyName].frames++;
+      }
 
-    for (const track of sortedTracks) {
-      const activity = this.toyCategories[track.category] || 'unknown';
-      const participants = this.getParticipants(track, personDetectionData);
-
-      if (activity !== currentActivity) {
-        if (currentActivity) {
-          activitySequence.push({
-            time: currentTime,
-            activity: currentActivity,
-            participants: currentParticipants
+      // 연속된 이벤트 간 전환 감지
+      if (index > 0) {
+        const prevEvent = objectEvents[index - 1];
+        const timeDiff = event.time - prevEvent.time;
+        
+        if (prevEvent.name !== event.name && timeDiff < 30) { // 30초 이내 전환
+          transitions.push({
+            from: prevEvent.name,
+            to: event.name,
+            time: event.time
           });
         }
-        currentActivity = activity;
-        currentTime = track.time;
-        currentParticipants = participants;
       }
-    }
+    });
 
-    // 마지막 활동 추가
-    if (currentActivity) {
-      activitySequence.push({
-        time: currentTime,
-        activity: currentActivity,
-        participants: currentParticipants
-      });
-    }
+    // 사용 시간 계산
+    const duration: Record<string, number> = {};
+    Object.entries(toyDuration).forEach(([toy, data]) => {
+      duration[toy] = Math.max(data.end - data.start, data.frames * 2); // 최소 지속 시간 보장
+    });
 
-    // 전환 분석
-    for (let i = 1; i < activitySequence.length; i++) {
-      const prev = activitySequence[i - 1];
-      const curr = activitySequence[i];
-      const duration = curr.time - prev.time;
-
-      if (duration >= this.minActivityDuration) {
-        const transitionType = this.classifyTransition(prev, curr, duration);
-        
-        transitions.push({
-          time: curr.time,
-          fromActivity: prev.activity,
-          toActivity: curr.activity,
-          duration,
-          participants: curr.participants,
-          transitionType
-        });
+    // 공유 비율 계산 (시간대별 중복 객체 감지 기반)
+    const timeSlots: Record<number, Set<string>> = {};
+    objectEvents.forEach(event => {
+      const timeSlot = Math.floor(event.time / 5) * 5; // 5초 슬롯
+      if (!timeSlots[timeSlot]) {
+        timeSlots[timeSlot] = new Set();
       }
-    }
+      timeSlots[timeSlot].add(event.name);
+    });
 
-    return transitions;
+    let sharedSlots = 0;
+    const totalSlots = Object.keys(timeSlots).length;
+    Object.values(timeSlots).forEach(objects => {
+      if (objects.size > 1) { // 여러 객체가 동시에 감지된 경우
+        sharedSlots++;
+      }
+    });
+
+    const sharingRatio = totalSlots > 0 ? sharedSlots / totalSlots : 0;
+
+    console.log(`🎲 Toy usage: ${toys.size} toys detected, ${transitions.length} transitions, ${(sharingRatio * 100).toFixed(1)}% sharing`);
+
+    return {
+      toys: Array.from(toys),
+      duration,
+      sharingRatio: Number(sharingRatio.toFixed(3)),
+      transitions: transitions.slice(0, 10) // 최대 10개 전환만
+    };
   }
 
-  /**
-   * 협력 놀이 패턴 분석
-   */
-  private analyzeCooperativePatterns(
-    objectTracks: ObjectTrack[],
-    personDetectionData: any[]
-  ): CooperativePattern[] {
-    const patterns: CooperativePattern[] = [];
-    const cooperativeEvents: Array<{
-      time: number;
-      type: string;
-      participants: string[];
-      intensity: number;
-    }> = [];
+  private analyzeToyUsageFromExtractedData(
+    objectEvents: Array<{ objectId: string; objectName: string; events: Array<{ time: number; confidence: number }> }>
+  ) {
+    const toys = new Set<string>();
+    const toyDuration: Record<string, {start: number; end: number; eventCount: number}> = {};
+    const transitions: Array<{from: string; to: string; time: number}> = [];
 
-    // 협력 이벤트 감지
-    for (const track of objectTracks) {
-      const participants = this.getParticipants(track, personDetectionData);
+    // 모든 이벤트를 시간순으로 정렬
+    const allEvents: Array<{objectName: string; time: number; confidence: number}> = [];
+    
+    objectEvents.forEach(obj => {
+      const objectName = obj.objectName.toLowerCase();
       
-      if (participants.length >= 2) {
-        const cooperationType = this.detectCooperationType(track, participants);
-        const intensity = this.calculateCooperationIntensity(track, participants);
+      // 장난감 관련 객체만 처리
+      if (this.isToyRelated(objectName)) {
+        toys.add(objectName);
+        
+        obj.events.forEach(event => {
+          allEvents.push({
+            objectName,
+            time: event.time,
+            confidence: event.confidence
+          });
+        });
 
-        cooperativeEvents.push({
-          time: track.time,
-          type: cooperationType,
-          participants,
-          intensity
+        // 사용 시간 계산
+        if (obj.events.length > 0) {
+          const times = obj.events.map(e => e.time);
+          toyDuration[objectName] = {
+            start: Math.min(...times),
+            end: Math.max(...times),
+            eventCount: obj.events.length
+          };
+        }
+      }
+    });
+
+    // 시간순 정렬 후 전환 분석
+    allEvents.sort((a, b) => a.time - b.time);
+    
+    for (let i = 1; i < allEvents.length; i++) {
+      const prevEvent = allEvents[i-1];
+      const currEvent = allEvents[i];
+      
+      if (prevEvent.objectName !== currEvent.objectName && 
+          currEvent.time - prevEvent.time < 30) { // 30초 이내 전환
+        transitions.push({
+          from: prevEvent.objectName,
+          to: currEvent.objectName,
+          time: currEvent.time
         });
       }
     }
 
-    // 협력 패턴 그룹화
-    let currentPattern: CooperativePattern | null = null;
+    // 사용 시간 및 공유 비율 계산
+    const duration: Record<string, number> = {};
+    Object.entries(toyDuration).forEach(([toy, data]) => {
+      duration[toy] = Math.max(data.end - data.start, data.eventCount * 2);
+    });
+
+    // 공유 비율 (동시간대 여러 객체 이벤트 기준)
+    const timeSlots: Record<number, Set<string>> = {};
+    allEvents.forEach(event => {
+      const timeSlot = Math.floor(event.time / 5) * 5; // 5초 슬롯
+      if (!timeSlots[timeSlot]) {
+        timeSlots[timeSlot] = new Set();
+      }
+      timeSlots[timeSlot].add(event.objectName);
+    });
+
+    let sharedSlots = 0;
+    const totalSlots = Object.keys(timeSlots).length;
+    Object.values(timeSlots).forEach(objects => {
+      if (objects.size > 1) {
+        sharedSlots++;
+      }
+    });
+
+    const sharingRatio = totalSlots > 0 ? sharedSlots / totalSlots : 0;
+
+    console.log(`🎲 Toy usage with extracted data: ${toys.size} toys detected, ${transitions.length} transitions, ${(sharingRatio * 100).toFixed(1)}% sharing`);
+
+    return {
+      toys: Array.from(toys),
+      duration,
+      sharingRatio: Number(sharingRatio.toFixed(3)),
+      transitions: transitions.slice(0, 10) // 최대 10개 전환만
+    };
+  }
+
+  private analyzeActivityTransitionsFromRealData(objectData: any[], personData: any[]) {
+    const transitions: Array<{time: number; type: string; description: string}> = [];
+
+    // 객체 감지 이벤트 추출
+    const objectEvents: Array<{time: number; object: string; confidence: number}> = [];
     
-    for (const event of cooperativeEvents) {
-      if (event.intensity >= this.cooperativeThreshold) {
-        if (currentPattern === null || 
-            currentPattern.type !== event.type ||
-            event.time - currentPattern.endTime > 5) {
+    objectData.forEach(obj => {
+      obj.tracks?.forEach((track: any) => {
+        const entityName = obj.entity?.description || 'object';
+        
+        track.timestampedObjects?.forEach((timestampedObj: any) => {
+          const time = this.parseTimeOffset(timestampedObj.timeOffset);
+          const confidence = timestampedObj.confidence || 0.5;
           
-          // 새로운 패턴 시작
-          if (currentPattern !== null) {
-            patterns.push(currentPattern);
-          }
-          
-          currentPattern = {
-            type: event.type as any,
-            startTime: event.time,
-            endTime: event.time,
-            participants: event.participants,
-            intensity: event.intensity,
-            success: true
-          };
-        } else {
-          // 기존 패턴 연장
-          currentPattern.endTime = event.time;
-          currentPattern.intensity = (currentPattern.intensity + event.intensity) / 2;
+          objectEvents.push({ time, object: entityName, confidence });
+        });
+      });
+    });
+
+    // 시간순 정렬
+    objectEvents.sort((a, b) => a.time - b.time);
+
+    // 활동 전환점 감지
+    let currentPhase = '';
+    let phaseStartTime = 0;
+    const phaseMinDuration = 15; // 최소 15초
+
+    objectEvents.forEach((event, index) => {
+      const timeFromStart = event.time;
+      
+      // 새로운 객체 도입 감지
+      if (index === 0 || 
+          (index > 0 && event.object !== objectEvents[index - 1].object && 
+           event.time - objectEvents[index - 1].time > 10)) {
+        
+        // 이전 페이즈가 충분히 길었다면 종료
+        if (currentPhase && timeFromStart - phaseStartTime > phaseMinDuration) {
+          transitions.push({
+            time: Math.round(timeFromStart),
+            type: 'object_transition',
+            description: `새로운 객체 도입: ${event.object}`
+          });
+        }
+        
+        currentPhase = event.object;
+        phaseStartTime = timeFromStart;
+      }
+    });
+
+    // 활동 강도 변화 감지 (객체 감지 빈도 기반)
+    const timeWindows = Math.ceil((objectEvents[objectEvents.length - 1]?.time || 60) / 30); // 30초 윈도우
+    
+    for (let i = 0; i < timeWindows - 1; i++) {
+      const windowStart = i * 30;
+      const windowEnd = (i + 1) * 30;
+      const nextWindowEnd = (i + 2) * 30;
+      
+      const currentWindow = objectEvents.filter(e => e.time >= windowStart && e.time < windowEnd);
+      const nextWindow = objectEvents.filter(e => e.time >= windowEnd && e.time < nextWindowEnd);
+      
+      if (currentWindow.length > 0 && nextWindow.length > 0) {
+        const currentIntensity = currentWindow.length;
+        const nextIntensity = nextWindow.length;
+        
+        const intensityChange = (nextIntensity - currentIntensity) / currentIntensity;
+        
+        if (intensityChange > 0.5) { // 50% 이상 증가
+          transitions.push({
+            time: windowEnd,
+            type: 'intensity_increase',
+            description: '활동 강도 증가'
+          });
+        } else if (intensityChange < -0.5) { // 50% 이상 감소
+          transitions.push({
+            time: windowEnd,
+            type: 'intensity_decrease', 
+            description: '활동 강도 감소'
+          });
         }
       }
     }
 
-    // 마지막 패턴 추가
-    if (currentPattern !== null) {
-      patterns.push(currentPattern);
+    console.log(`🔄 Activity transitions: ${transitions.length} significant changes detected`);
+    
+    return transitions.sort((a, b) => a.time - b.time);
+  }
+
+  private analyzeActivityTransitionsFromExtractedData(
+    objectEvents: Array<{ objectName: string; events: Array<{ time: number; confidence: number }> }>,
+    personMovements: Array<{ personId: number; movements: Array<{ time: number; center: [number, number] }> }>
+  ) {
+    const transitions: Array<{time: number; type: string; description: string}> = [];
+
+    // 객체 이벤트들을 시간순으로 정렬
+    const allObjectEvents: Array<{time: number; object: string}> = [];
+    
+    objectEvents.forEach(obj => {
+      obj.events.forEach(event => {
+        allObjectEvents.push({
+          time: event.time,
+          object: obj.objectName
+        });
+      });
+    });
+
+    allObjectEvents.sort((a, b) => a.time - b.time);
+
+    // 새로운 객체 도입 감지
+    let currentObject = '';
+    let objectStartTime = 0;
+    const minDuration = 15; // 최소 15초
+
+    allObjectEvents.forEach(event => {
+      if (currentObject !== event.object) {
+        if (currentObject && event.time - objectStartTime > minDuration) {
+          transitions.push({
+            time: Math.round(event.time),
+            type: 'object_transition',
+            description: `새로운 객체 도입: ${event.object}`
+          });
+        }
+        currentObject = event.object;
+        objectStartTime = event.time;
+      }
+    });
+
+    // 활동 강도 변화 감지 (30초 윈도우)
+    const totalDuration = allObjectEvents.length > 0 ? 
+      allObjectEvents[allObjectEvents.length - 1].time - allObjectEvents[0].time : 60;
+    const timeWindows = Math.ceil(totalDuration / 30);
+    
+    for (let i = 0; i < timeWindows - 1; i++) {
+      const windowStart = i * 30;
+      const windowEnd = (i + 1) * 30;
+      const nextWindowEnd = (i + 2) * 30;
+      
+      const currentWindow = allObjectEvents.filter(e => e.time >= windowStart && e.time < windowEnd);
+      const nextWindow = allObjectEvents.filter(e => e.time >= windowEnd && e.time < nextWindowEnd);
+      
+      if (currentWindow.length > 0 && nextWindow.length > 0) {
+        const intensityChange = (nextWindow.length - currentWindow.length) / currentWindow.length;
+        
+        if (intensityChange > 0.5) {
+          transitions.push({
+            time: windowEnd,
+            type: 'intensity_increase',
+            description: '활동 강도 증가'
+          });
+        } else if (intensityChange < -0.5) {
+          transitions.push({
+            time: windowEnd,
+            type: 'intensity_decrease', 
+            description: '활동 강도 감소'
+          });
+        }
+      }
     }
 
+    console.log(`🔄 Activity transitions with extracted data: ${transitions.length} significant changes detected`);
+    
+    return transitions.sort((a, b) => a.time - b.time);
+  }
+
+  private detectCooperativePatternsFromRealData(objectData: any[], personData: any[]) {
+    const patterns: Array<{time: number; duration: number; participants: string[]}> = [];
+
+    // 시간대별 객체와 사람 동시 감지 분석
+    const timeSlots: Record<number, {objects: number; persons: number}> = {};
+    
+    // 객체 이벤트 집계
+    objectData.forEach(obj => {
+      obj.tracks?.forEach((track: any) => {
+        track.timestampedObjects?.forEach((timestampedObj: any) => {
+          const time = this.parseTimeOffset(timestampedObj.timeOffset);
+          const timeSlot = Math.floor(time / 10) * 10; // 10초 슬롯
+          
+          if (!timeSlots[timeSlot]) {
+            timeSlots[timeSlot] = { objects: 0, persons: 0 };
+          }
+          timeSlots[timeSlot].objects++;
+        });
+      });
+    });
+
+    // 사람 이벤트 집계
+    personData.forEach(person => {
+      person.tracks?.forEach((track: any) => {
+        track.timestampedObjects?.forEach((timestampedObj: any) => {
+          const time = this.parseTimeOffset(timestampedObj.timeOffset);
+          const timeSlot = Math.floor(time / 10) * 10;
+          
+          if (!timeSlots[timeSlot]) {
+            timeSlots[timeSlot] = { objects: 0, persons: 0 };
+          }
+          timeSlots[timeSlot].persons++;
+        });
+      });
+    });
+
+    // 협력 놀이 패턴 감지 (객체와 사람이 동시에 많이 감지되는 구간)
+    const sortedSlots = Object.entries(timeSlots)
+      .map(([timeStr, data]) => ({ time: parseInt(timeStr), ...data }))
+      .sort((a, b) => a.time - b.time);
+
+    let cooperativeStart: number | null = null;
+    
+    sortedSlots.forEach((slot, index) => {
+      const isCooperative = slot.objects >= 2 && slot.persons >= 2; // 최소 조건
+      
+      if (isCooperative && cooperativeStart === null) {
+        cooperativeStart = slot.time;
+      } else if (!isCooperative && cooperativeStart !== null) {
+        const duration = slot.time - cooperativeStart;
+        if (duration >= 20) { // 최소 20초 이상
+          patterns.push({
+            time: cooperativeStart,
+            duration,
+            participants: ['parent', 'child'] // 기본 참여자
+          });
+        }
+        cooperativeStart = null;
+      }
+    });
+
+    // 마지막 협력 구간 처리
+    if (cooperativeStart !== null && sortedSlots.length > 0) {
+      const lastSlot = sortedSlots[sortedSlots.length - 1];
+      const duration = lastSlot.time - cooperativeStart + 10;
+      if (duration >= 20) {
+        patterns.push({
+          time: cooperativeStart,
+          duration,
+          participants: ['parent', 'child']
+        });
+      }
+    }
+
+    console.log(`🤝 Cooperative patterns: ${patterns.length} collaborative periods detected`);
+    
     return patterns;
   }
 
-  /**
-   * 창의성 지표 계산
-   */
-  private calculateCreativityIndicators(
-    objectTracks: ObjectTrack[],
-    toyUsageAnalysis: any,
-    activityTransitions: ActivityTransition[]
-  ): {
-    noveltyScore: number;
-    variabilityScore: number;
-    imaginativePlayScore: number;
-    problemSolvingScore: number;
-  } {
-    // 참신성 점수 (새로운 조합)
-    const noveltyScore = Math.min(
-      activityTransitions.filter(t => t.transitionType === 'smooth').length / 10,
-      1.0
-    );
+  private detectCooperativePatternsFromExtractedData(
+    objectEvents: Array<{ events: Array<{ time: number }> }>,
+    personMovements: Array<{ movements: Array<{ time: number }> }>
+  ) {
+    const patterns: Array<{time: number; duration: number; participants: string[]}> = [];
 
-    // 변화성 점수 (활동 다양성)
-    const uniqueActivities = new Set(
-      activityTransitions.map(t => t.toActivity)
-    ).size;
-    const variabilityScore = Math.min(uniqueActivities / 8, 1.0);
+    // 시간대별 활동 집계
+    const timeSlots: Record<number, {objects: number; persons: number}> = {};
+    
+    // 객체 이벤트 집계
+    objectEvents.forEach(obj => {
+      obj.events.forEach(event => {
+        const timeSlot = Math.floor(event.time / 10) * 10; // 10초 슬롯
+        if (!timeSlots[timeSlot]) {
+          timeSlots[timeSlot] = { objects: 0, persons: 0 };
+        }
+        timeSlots[timeSlot].objects++;
+      });
+    });
 
-    // 상상놀이 점수 (역할놀이 비율)
-    const imaginativeTransitions = activityTransitions.filter(
-      t => t.toActivity === 'pretend_play'
-    ).length;
-    const imaginativePlayScore = Math.min(imaginativeTransitions / 5, 1.0);
+    // 사람 움직임 집계
+    personMovements.forEach(person => {
+      person.movements.forEach(movement => {
+        const timeSlot = Math.floor(movement.time / 10) * 10;
+        if (!timeSlots[timeSlot]) {
+          timeSlots[timeSlot] = { objects: 0, persons: 0 };
+        }
+        timeSlots[timeSlot].persons++;
+      });
+    });
 
-    // 문제해결 점수 (인지놀이 + 구성놀이)
-    const problemSolvingTransitions = activityTransitions.filter(
-      t => t.toActivity === 'cognitive' || t.toActivity === 'construction'
-    ).length;
-    const problemSolvingScore = Math.min(problemSolvingTransitions / 5, 1.0);
+    // 협력 놀이 패턴 감지
+    const sortedSlots = Object.entries(timeSlots)
+      .map(([timeStr, data]) => ({ time: parseInt(timeStr), ...data }))
+      .sort((a, b) => a.time - b.time);
+
+    let cooperativeStart: number | null = null;
+    
+    sortedSlots.forEach(slot => {
+      const isCooperative = slot.objects >= 2 && slot.persons >= 1; // 조건 완화
+      
+      if (isCooperative && cooperativeStart === null) {
+        cooperativeStart = slot.time;
+      } else if (!isCooperative && cooperativeStart !== null) {
+        const duration = slot.time - cooperativeStart;
+        if (duration >= 20) {
+          patterns.push({
+            time: cooperativeStart,
+            duration,
+            participants: ['parent', 'child']
+          });
+        }
+        cooperativeStart = null;
+      }
+    });
+
+    // 마지막 협력 구간 처리
+    if (cooperativeStart !== null && sortedSlots.length > 0) {
+      const lastSlot = sortedSlots[sortedSlots.length - 1];
+      const duration = lastSlot.time - cooperativeStart + 10;
+      if (duration >= 20) {
+        patterns.push({
+          time: cooperativeStart,
+          duration,
+          participants: ['parent', 'child']
+        });
+      }
+    }
+
+    console.log(`🤝 Cooperative patterns with extracted data: ${patterns.length} collaborative periods detected`);
+    
+    return patterns;
+  }
+
+  private calculateCreativityFromRealData(objectData: any[]) {
+    const uniqueObjects = new Set<string>();
+    let totalConfidence = 0;
+    let objectCount = 0;
+
+    // 객체 다양성 및 신뢰도 분석
+    objectData.forEach(obj => {
+      const entityName = obj.entity?.description?.toLowerCase() || 'unknown';
+      uniqueObjects.add(entityName);
+      
+      obj.tracks?.forEach((track: any) => {
+        track.timestampedObjects?.forEach((timestampedObj: any) => {
+          const confidence = timestampedObj.confidence || 0.5;
+          totalConfidence += confidence;
+          objectCount++;
+        });
+      });
+    });
+
+    const avgConfidence = objectCount > 0 ? totalConfidence / objectCount : 0;
+    const diversityScore = Math.min((uniqueObjects.size / Math.max(objectCount / 10, 1)) * 100, 100);
+    
+    // 혁신 이벤트: 새로운 객체 도입이나 높은 신뢰도 이벤트
+    const innovationEvents = Math.max(0, uniqueObjects.size - 2); // 기본 2개 이상부터 혁신으로 간주
+    
+    // 탐색 비율: 평균 신뢰도 기반
+    const explorationRatio = Math.min(avgConfidence + 0.3, 1.0); // 신뢰도가 높을수록 체계적 탐색
+
+    console.log(`🎨 Creativity analysis: ${uniqueObjects.size} unique objects, diversity: ${diversityScore.toFixed(1)}, exploration: ${(explorationRatio * 100).toFixed(1)}%`);
 
     return {
-      noveltyScore: Math.round(noveltyScore * 100) / 100,
-      variabilityScore: Math.round(variabilityScore * 100) / 100,
-      imaginativePlayScore: Math.round(imaginativePlayScore * 100) / 100,
-      problemSolvingScore: Math.round(problemSolvingScore * 100) / 100
+      diversityScore: Math.round(diversityScore),
+      innovationEvents,
+      explorationRatio: Number(explorationRatio.toFixed(3))
     };
   }
 
-  /**
-   * 발달 지표 계산
-   */
-  private calculateDevelopmentMetrics(
-    toyUsageAnalysis: any,
-    activityTransitions: ActivityTransition[],
-    cooperativePatterns: CooperativePattern[]
-  ): {
-    fineMotorSkills: number;
-    grossMotorSkills: number;
-    socialInteraction: number;
-    cognitiveFlexibility: number;
-  } {
-    // 소근육 발달 (구성놀이, 창작놀이)
-    const fineMotorActivities = activityTransitions.filter(
-      t => t.toActivity === 'construction' || t.toActivity === 'creative'
-    ).length;
-    const fineMotorSkills = Math.min(fineMotorActivities / 5, 1.0);
+  private calculateCreativityFromExtractedData(
+    objectEvents: Array<{ objectId: string; objectName: string; events: Array<{ confidence: number }> }>
+  ) {
+    const uniqueObjects = new Set(objectEvents.map(obj => obj.objectName));
+    let totalConfidence = 0;
+    let eventCount = 0;
 
-    // 대근육 발달 (신체놀이, 운동놀이)
-    const grossMotorActivities = activityTransitions.filter(
-      t => t.toActivity === 'active_play' || t.toActivity === 'vehicle'
-    ).length;
-    const grossMotorSkills = Math.min(grossMotorActivities / 5, 1.0);
+    objectEvents.forEach(obj => {
+      obj.events.forEach(event => {
+        totalConfidence += event.confidence;
+        eventCount++;
+      });
+    });
 
-    // 사회적 상호작용 (협력 패턴)
-    const socialInteraction = Math.min(
-      cooperativePatterns.length / 3 + toyUsageAnalysis.sharingRatio,
-      1.0
-    );
+    const avgConfidence = eventCount > 0 ? totalConfidence / eventCount : 0;
+    const diversityScore = Math.min((uniqueObjects.size / Math.max(eventCount / 10, 1)) * 100, 100);
+    
+    const innovationEvents = Math.max(0, uniqueObjects.size - 1);
+    const explorationRatio = Math.min(avgConfidence + 0.2, 1.0);
 
-    // 인지적 유연성 (활동 전환)
-    const cognitiveFlexibility = Math.min(activityTransitions.length / 10, 1.0);
+    console.log(`🎨 Creativity analysis with extracted data: ${uniqueObjects.size} unique objects, diversity: ${diversityScore.toFixed(1)}, exploration: ${(explorationRatio * 100).toFixed(1)}%`);
 
     return {
-      fineMotorSkills: Math.round(fineMotorSkills * 100) / 100,
-      grossMotorSkills: Math.round(grossMotorSkills * 100) / 100,
-      socialInteraction: Math.round(socialInteraction * 100) / 100,
-      cognitiveFlexibility: Math.round(cognitiveFlexibility * 100) / 100
+      diversityScore: Math.round(diversityScore),
+      innovationEvents,
+      explorationRatio: Number(explorationRatio.toFixed(3))
     };
   }
 
-  /**
-   * 전체 점수 계산
-   */
   private calculateOverallScore(
-    toyUsageAnalysis: any,
-    activityTransitions: ActivityTransition[],
-    cooperativePatterns: CooperativePattern[],
+    toyUsage: any,
+    activityTransitions: any[],
+    cooperativePatterns: any[],
     creativityIndicators: any
   ): number {
-    // 각 영역별 점수
-    const usageScore = Math.min(
-      toyUsageAnalysis.usagePatterns.length / 5 + toyUsageAnalysis.sharingRatio,
-      1.0
-    );
+    const toyScore = Math.min(toyUsage.toys.length * 15, 40); // 장난감 다양성 (최대 40점)
+    const sharingScore = toyUsage.sharingRatio * 30; // 공유 놀이 (30점)
+    const transitionScore = Math.min(activityTransitions.length * 3, 15); // 활동 전환 (최대 15점)
+    const cooperationScore = Math.min(cooperativePatterns.length * 8, 25); // 협력 놀이 (최대 25점)
+    const creativityScore = creativityIndicators.diversityScore * 0.1; // 창의성 (10점)
 
-    const creativityScore = (
-      creativityIndicators.noveltyScore +
-      creativityIndicators.variabilityScore +
-      creativityIndicators.imaginativePlayScore +
-      creativityIndicators.problemSolvingScore
-    ) / 4;
-
-    const developmentScore = (
-      this.calculateDevelopmentMetrics(toyUsageAnalysis, activityTransitions, cooperativePatterns).fineMotorSkills +
-      this.calculateDevelopmentMetrics(toyUsageAnalysis, activityTransitions, cooperativePatterns).grossMotorSkills +
-      this.calculateDevelopmentMetrics(toyUsageAnalysis, activityTransitions, cooperativePatterns).socialInteraction +
-      this.calculateDevelopmentMetrics(toyUsageAnalysis, activityTransitions, cooperativePatterns).cognitiveFlexibility
-    ) / 4;
-
-    // 가중 평균
-    const overallScore = (
-      usageScore * 0.3 +
-      creativityScore * 0.4 +
-      developmentScore * 0.3
-    );
-
-    return Math.round(overallScore * 100) / 100;
-  }
-
-  /**
-   * 공유 상호작용 여부 판단
-   */
-  private isSharedInteraction(track: ObjectTrack): boolean {
-    // 간단한 휴리스틱: 바운딩 박스 크기가 크면 공유 가능성 높음
-    const bbox = track.boundingBox;
-    const size = (bbox.right - bbox.left) * (bbox.bottom - bbox.top);
-    return size > 0.1;
-  }
-
-  /**
-   * 참가자 식별
-   */
-  private getParticipants(track: ObjectTrack, personDetectionData: any[]): string[] {
-    // 간단한 구현: 시간대 기준으로 참가자 추정
-    const participants = ['참가자1', '참가자2'];
-    return participants.filter((_, index) => Math.random() > 0.3); // 임시 로직
-  }
-
-  /**
-   * 전환 유형 분류
-   */
-  private classifyTransition(
-    prev: any,
-    curr: any,
-    duration: number
-  ): 'smooth' | 'abrupt' | 'guided' {
-    if (duration < 2) {
-      return 'abrupt';
-    } else if (duration > 10) {
-      return 'guided';
-    } else {
-      return 'smooth';
-    }
-  }
-
-  /**
-   * 협력 유형 감지
-   */
-  private detectCooperationType(track: ObjectTrack, participants: string[]): string {
-    // 간단한 휴리스틱
-    const activityType = this.toyCategories[track.category] || 'unknown';
+    const total = toyScore + sharingScore + transitionScore + cooperationScore + creativityScore;
     
-    if (activityType === 'construction') {
-      return 'collaborative';
-    } else if (activityType === 'active_play') {
-      return 'turn_taking';
-    } else if (activityType === 'pretend_play') {
-      return 'imitation';
-    } else {
-      return 'parallel';
-    }
-  }
-
-  /**
-   * 협력 강도 계산
-   */
-  private calculateCooperationIntensity(track: ObjectTrack, participants: string[]): number {
-    // 참가자 수와 객체 크기 기반 강도 계산
-    const participantFactor = participants.length / 2;
-    const sizeFactor = this.getObjectSize(track);
+    console.log(`📊 Score breakdown: toys=${toyScore}, sharing=${sharingScore.toFixed(1)}, transitions=${transitionScore}, cooperation=${cooperationScore}, creativity=${creativityScore.toFixed(1)}`);
     
-    return Math.min(participantFactor * sizeFactor, 1.0);
+    return Math.round(total);
   }
 
-  /**
-   * 객체 크기 계산
-   */
-  private getObjectSize(track: ObjectTrack): number {
-    const bbox = track.boundingBox;
-    return (bbox.right - bbox.left) * (bbox.bottom - bbox.top);
+  // 유틸리티 메서드들
+  private parseTimeOffset(timeOffset: any): number {
+    if (!timeOffset) return 0;
+    
+    if (typeof timeOffset === 'string') {
+      return parseFloat(timeOffset);
+    }
+    
+    if (timeOffset.seconds !== undefined) {
+      const seconds = parseInt(timeOffset.seconds) || 0;
+      const nanos = parseInt(timeOffset.nanos) || 0;
+      return seconds + nanos / 1e9;
+    }
+    
+    return 0;
   }
 
-  /**
-   * 기본 결과 반환
-   */
-  private getDefaultResult(): PlayPatternResult {
+  private isToyRelated(entityName: string): boolean {
+    const toyKeywords = ['toy', 'ball', 'doll', 'block', 'car', 'truck', 'book', 'puzzle', 'game', 'bear', 'animal'];
+    return toyKeywords.some(keyword => entityName.includes(keyword)) || 
+           this.toyCategories.has(entityName);
+  }
+
+  private createEmptyResult(): PlayPatternResult {
     return {
-      toyUsageAnalysis: {
-        toysDetected: [],
-        usagePatterns: [],
-        sharingRatio: 0,
-        dominantToys: []
-      },
+      toysDetected: [],
+      usageDuration: {},
+      sharingRatio: 0,
+      toyTransitions: [],
       activityTransitions: [],
       cooperativePatterns: [],
       creativityIndicators: {
-        noveltyScore: 0,
-        variabilityScore: 0,
-        imaginativePlayScore: 0,
-        problemSolvingScore: 0
-      },
-      developmentMetrics: {
-        fineMotorSkills: 0,
-        grossMotorSkills: 0,
-        socialInteraction: 0,
-        cognitiveFlexibility: 0
+        diversityScore: 0,
+        innovationEvents: 0,
+        explorationRatio: 0
       },
       overallScore: 0
     };
