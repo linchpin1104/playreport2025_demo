@@ -83,21 +83,26 @@ export async function POST(request: NextRequest): Promise<NextResponse<Comprehen
     // 파라미터 파싱
     const { sessionId } = body;
     
-    // ⚠️ Vercel 최종 해결책: 동기 처리 + UI에서 결과보기 버튼 제공
-    // 백그라운드 처리가 Vercel에서 작동하지 않으므로 동기 처리로 진행
-    const isAsync = false; // body.async !== false; // 임시로 동기 처리 강제
-    
-    logger.info(`🎯 Analysis request: ${sessionId}, async: ${isAsync}`);
-    
+    // 🎯 Vercel 타임아웃 해결책: 파일 크기별 처리 전략
+    // 작은 파일(50MB 미만): 동기 처리 (3분 내 완료 예상)
+    // 큰 파일(50MB 이상): 비동기 처리 + 결과보기 버튼
     const gcpStorage = new GCPDataStorage();
+    const sessionData = await gcpStorage.getSession(sessionId);
+    const fileSize = sessionData?.metadata?.fileSize || 0;
+    const fileSizeMB = fileSize / 1024 / 1024;
+    
+    // 50MB 미만은 동기 처리, 이상은 비동기 처리
+    const isAsync = fileSizeMB >= 50;
+    
+    logger.info(`🎯 Analysis request: ${sessionId}, fileSize: ${fileSizeMB.toFixed(1)}MB, async: ${isAsync}`);
+    
     const startTime = new Date().toISOString();
     
-    // 세션 존재 확인
-    const sessionData = await gcpStorage.getSession(sessionId);
+    // 세션 존재 확인 (이미 위에서 가져왔으므로 중복 제거)
     if (!sessionData) {
       logger.error(`❌ Session not found: ${sessionId}`);
       return NextResponse.json({
-        sessionId,
+        sessionId: '',
         status: 'failed' as const,
         async: isAsync,
         startTime,
@@ -141,12 +146,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<Comprehen
     await gcpStorage.saveSession(sessionData);
 
     if (isAsync) {
-      // 🚀 비동기 처리: 즉시 응답 반환하고 백그라운드에서 처리
+      // 🚀 비동기 처리: 백그라운드 분석을 즉시 시작하고 응답 반환
       
-      // 백그라운드 분석 시작 (await 하지 않음)
-      performBackgroundAnalysis(sessionId).catch(error => {
-        logger.error(`❌ Background analysis failed for ${sessionId}:`, error);
+      // Vercel 해결책: setImmediate로 즉시 실행 + 짧은 대기로 시작 보장
+      setImmediate(() => {
+        performBackgroundAnalysis(sessionId).catch(error => {
+          logger.error(`❌ Background analysis failed for ${sessionId}:`, error);
+        });
       });
+
+      // 백그라운드 작업이 시작될 시간을 주기 위해 100ms 대기
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       return NextResponse.json({
         sessionId,
