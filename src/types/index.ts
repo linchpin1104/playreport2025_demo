@@ -261,7 +261,7 @@ export interface PlayAnalysisSession {
     uploadedAt: string;
     analyzedAt: string;
     lastUpdated: string;
-    status: 'uploaded' | 'processing' | 'completed' | 'failed' | 'error' | 'core_extracted' | 'voice_analyzed' | 'evaluation_completed' | 'integrated_analysis_completed' | 'report_generated' | 'comprehensive_analysis_started' | 'comprehensive_analysis_completed';
+    status: 'uploaded' | 'processing' | 'completed' | 'failed' | 'error' | 'core_extracted' | 'voice_analyzed' | 'evaluation_completed' | 'integrated_analysis_completed' | 'report_generated' | 'comprehensive_analysis_started' | 'comprehensive_analysis_completed' | 'video_intelligence_operation_started' | 'video_intelligence_processing' | 'data_processing';
   };
   paths: {
     videoUrl?: string;
@@ -284,6 +284,17 @@ export interface PlayAnalysisSession {
     interactionQuality?: number;
     completedAt?: string;
     processingSteps?: string[];
+    // 🔧 Long Running Operation 지원
+    videoIntelligenceOperation?: {
+      operationId: string;
+      operationName: string;
+      status: 'running' | 'completed' | 'failed';
+      startTime: string;
+      progress?: number;
+      gsUri: string;
+      completedAt?: string;
+      error?: string;
+    };
   };
   tags: string[];
   

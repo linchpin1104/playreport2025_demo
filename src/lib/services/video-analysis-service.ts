@@ -61,13 +61,13 @@ export class VideoAnalysisService {
   }
 
   /**
-   * 전체 비디오 분석 워크플로우 실행 (단순화됨)
+   * 전체 비디오 분석 워크플로우 실행 (Long Running Operation 지원)
    */
-  async performCompleteAnalysis(request: VideoAnalysisRequest): Promise<ServiceResult<VideoIntelligenceResults>> {
+  async performCompleteAnalysis(request: VideoAnalysisRequest): Promise<ServiceResult<any>> {
     return this.errorHandler.wrapAsync(
       'video-analysis',
       async () => {
-        this.logger.info('🎬 Starting simplified video analysis', { request });
+        this.logger.info('🎬 Starting Long Running Operation video analysis', { request });
 
         // 1. 비디오 경로 확인
         const videoPathResult = await this.resolveVideoPath(request);
@@ -77,12 +77,11 @@ export class VideoAnalysisService {
 
         const { videoPath } = videoPathResult.getValue();
 
-        // 2. VideoAnalyzer로 직접 분석 (단계별 복잡성 제거)
-        this.logger.info('🔍 Starting Google Cloud Video Intelligence analysis...');
+        // 2. VideoAnalyzer로 Long Running Operation 시작
+        this.logger.info('🔍 Starting Google Cloud Video Intelligence Long Running Operation...');
         
         const analysisOptions = {
           enableVoiceAnalysis: request.options?.enableVoiceAnalysis ?? true,
-          enableVideoAnalysis: request.options?.enableVideoAnalysis ?? true,
           enableTranscription: request.options?.enableTranscription ?? true,
           enableSpeakerDiarization: request.options?.enableSpeakerDiarization ?? true,
           enableFaceDetection: request.options?.enableFaceDetection ?? true,
@@ -90,12 +89,21 @@ export class VideoAnalysisService {
           enableGestureRecognition: request.options?.enableGestureRecognition ?? true,
         };
 
-        const results = await this.videoAnalyzer.analyzeVideo(videoPath, analysisOptions);
+        // 🔄 Long Running Operation 시작 (결과 기다리지 않음)
+        const operationInfo = await this.videoAnalyzer.analyzeVideo(videoPath, analysisOptions);
         
-        this.logger.info('✅ Video Intelligence analysis completed');
+        this.logger.info(`✅ Video Intelligence operation started: ${operationInfo.operationId}`);
         
-        // 3. 결과 반환 (추가 처리 없이)
-        return results;
+        // 3. Operation 정보 반환 (VideoIntelligenceResults 대신)
+        return {
+          operationId: operationInfo.operationId,
+          operationName: operationInfo.operationName, 
+          status: operationInfo.status,
+          startTime: operationInfo.startTime,
+          // 폴링 및 결과 조회용 메서드들
+          checkStatus: operationInfo.checkStatus,
+          getResult: operationInfo.getResult
+        };
       },
       {
         sessionId: request.sessionId,

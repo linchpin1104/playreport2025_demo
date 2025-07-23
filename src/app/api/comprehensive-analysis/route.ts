@@ -263,128 +263,66 @@ export async function performBackgroundAnalysis(sessionId: string): Promise<void
           }
         };
         
-        logger.info(`🚀 Starting Google Cloud Video Intelligence analysis for: ${gsUri}`);
+        logger.info(`🚀 Starting Google Cloud Video Intelligence Long Running Operation for: ${gsUri}`);
         const serviceResult = await videoAnalysisService.performCompleteAnalysis(analysisRequest);
         
         if (serviceResult.isFailure()) {
-          throw new Error(serviceResult.getError().message || '비디오+음성 분석에 실패했습니다.');
+          throw new Error(serviceResult.getError().message || '비디오+음성 분석 시작에 실패했습니다.');
         }
         
-        analysisResults = serviceResult.getValue();
-        logger.info('✅ Video Intelligence analysis completed successfully');
+        const operationInfo = serviceResult.getValue();
+        logger.info(`✅ Video Intelligence operation started: ${operationInfo.operationId}`);
         
-        // 데이터 구조 확인 및 정규화
-        videoIntelligenceResults = analysisResults; // 🔧 const 제거, 할당만
-        logger.info('📊 Analysis data structure:', {
-          hasPersonDetection: !!videoIntelligenceResults.personDetection,
-          personCount: videoIntelligenceResults.personDetection?.length || 0,
-          hasObjectTracking: !!videoIntelligenceResults.objectTracking,
-          objectCount: videoIntelligenceResults.objectTracking?.length || 0,
-          hasFaceDetection: !!videoIntelligenceResults.faceDetection,
-          faceCount: videoIntelligenceResults.faceDetection?.length || 0,
-          hasSpeechTranscription: !!videoIntelligenceResults.speechTranscription,
-          allKeys: Object.keys(videoIntelligenceResults)
+        // Operation 정보를 세션에 저장
+        sessionData.analysis = sessionData.analysis || {};
+        sessionData.analysis.videoIntelligenceOperation = {
+          operationId: operationInfo.operationId,
+          operationName: operationInfo.operationName,
+          status: operationInfo.status,
+          startTime: operationInfo.startTime,
+          gsUri: gsUri
+        };
+        sessionData.metadata.status = 'video_intelligence_processing';
+        sessionData.metadata.lastUpdated = new Date().toISOString();
+        
+        await gcpStorage.saveSession(sessionData);
+        
+        // 🔄 즉시 processing 상태로 응답 반환
+        logger.info(`🔄 Returning immediate response, operation ${operationInfo.operationId} will be monitored via Status API`);
+        
+        return NextResponse.json({
+          sessionId,
+          status: 'processing' as const,
+          async: true,
+          startTime,
+          totalProgress: 25, // Video Intelligence 시작됨
+          currentStep: 'Google Cloud Video Intelligence 분석 진행 중... (3-7분 소요)',
+          operationId: operationInfo.operationId,
+          polling: {
+            statusUrl: `/api/comprehensive-analysis/status/${sessionId}`,
+            interval: 15,  // 15초마다 상태 확인
+            timeout: 900   // 15분 후 타임아웃
+          }
         });
         
       } catch (error) {
-        logger.error('❌ Video analysis failed:', error);
+        logger.error('❌ Video Intelligence operation start failed:', error as Error);
         sessionData.metadata.status = 'error';
         sessionData.metadata.lastUpdated = new Date().toISOString();
         await gcpStorage.saveSession(sessionData);
         throw error;
       }
 
-      // 3. 원본 데이터 저장
-      logger.info('💾 Step 2: Saving raw analysis data...');
-      const rawDataPaths = {
-        combinedRaw: `analysis/${sessionId}/combined_analysis_raw.json`
-      };
-      
-      await gcpStorage.saveToCloudStorage(rawDataPaths.combinedRaw, {
-        sessionId,
-        timestamp: new Date().toISOString(),
-        rawVideoResults: videoIntelligenceResults,
-        metadata: sessionData.metadata
-      });
-      
-      sessionData.paths.analysisDataUrl = rawDataPaths.combinedRaw;
-      await gcpStorage.saveSession(sessionData);
-      logger.info('✅ Raw data saved successfully');
-
-      // 4. 통합 분석 수행 (새로운 워크플로우)
-      logger.info('🔗 Step 3: Performing unified analysis with data extraction...');
-      const { result: unifiedResult, extractedData } = await unifiedEngine.performCompleteAnalysis({
-        sessionId,
-        videoResults: videoIntelligenceResults,
-        metadata: {
-          fileName: sessionData.metadata.fileName,
-          fileSize: sessionData.metadata.fileSize
-        }
-      });
-      
-      // 5. 추출된 분석 데이터 별도 저장
-      logger.info('📊 Step 4: Saving extracted analysis data...');
-      const extractedDataPath = `analysis/${sessionId}/analysis_data_extracted.json`;
-      await gcpStorage.saveToCloudStorage(extractedDataPath, extractedData);
-      
-      sessionData.paths.extractedDataUrl = extractedDataPath;
-      logger.info('✅ Extracted analysis data saved successfully', {
-        originalSize: `${(extractedData.originalDataSize / 1024 / 1024).toFixed(2)}MB`,
-        extractedSize: `${(extractedData.extractedDataSize / 1024).toFixed(1)}KB`,
-        compressionRatio: `${extractedData.compressionRatio.toFixed(1)}%`
-      });
-      
-      // 6. 통합 분석 결과 저장
-      const unifiedAnalysisPath = `analysis/${sessionId}/unified_analysis.json`;
-      await gcpStorage.saveToCloudStorage(unifiedAnalysisPath, unifiedResult);
-      sessionData.paths.unifiedAnalysisUrl = unifiedAnalysisPath;
-      logger.info('✅ Unified analysis completed');
-      
-      // 7. 세션 데이터 업데이트
-      logger.info('📊 Step 5: Updating session with results...');
-      const videoDuration = unifiedResult.videoAnalysis?.duration || 0;
-      const participantCount = unifiedResult.videoAnalysis?.participantCount || 0;
-      const safetyScore = Math.round(
-        (unifiedResult.integratedAnalysis?.playPatternQuality || 0) * 0.6 +
-        (unifiedResult.videoAnalysis?.personDetected ? 25 : 0) +
-        (videoDuration > 60 ? 15 : 5)
-      );
-      
-      sessionData.paths.integratedAnalysisPath = unifiedAnalysisPath;
-      sessionData.analysis = {
-        participantCount,
-        videoDuration,
-        safetyScore,
-        overallScore: unifiedResult.overallScore,
-        interactionQuality: unifiedResult.interactionQuality,
-        keyInsights: unifiedResult.keyFindings.slice(0, 3),
-        completedAt: new Date().toISOString()
-      };
-      sessionData.metadata.status = 'comprehensive_analysis_completed';
-      sessionData.metadata.analyzedAt = new Date().toISOString();
-      sessionData.metadata.lastUpdated = new Date().toISOString();
-      
-      await gcpStorage.saveSession(sessionData);
-      
-      logger.info(`🎉 Background analysis completed successfully for: ${sessionId}`);
-      
     } catch (error) {
-      logger.error(`❌ Background analysis failed for ${sessionId}:`, error);
-      
-      // 실패 상태 업데이트
-      try {
-        const gcpStorage = new GCPDataStorage();
-        const sessionData = await gcpStorage.getSession(sessionId);
-        if (sessionData) {
-          sessionData.metadata.status = 'error';
-          sessionData.metadata.lastUpdated = new Date().toISOString();
-          await gcpStorage.saveSession(sessionData);
-        }
-      } catch (updateError) {
-        logger.error('Failed to update session with error status:', updateError);
-      }
-      
-      throw error;
+      logger.error('❌ Comprehensive analysis API error:', error as Error);
+      return NextResponse.json({
+        sessionId: '',
+        status: 'failed' as const,
+        async: false,
+        startTime,
+        totalProgress: 0,
+        error: error instanceof Error ? error.message : '분석 시작 중 오류가 발생했습니다.'
+      }, { status: 500 });
     }
   })();
   

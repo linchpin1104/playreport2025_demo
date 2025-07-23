@@ -147,7 +147,7 @@ export class VideoAnalyzer {
           const [result] = await operation.promise();
           return this.processResults(result);
         }
-      };
+      } as any; // 임시 타입 우회
       
     } catch (error) {
       logger.error('❌ 비디오 분석 중 오류:', error as Error);
@@ -165,11 +165,9 @@ export class VideoAnalyzer {
     result?: VideoIntelligenceResults;
   }> {
     try {
-      const operation = this.client.operationsClient.getOperation({
+      const [operationResult] = await this.client.operationsClient.getOperation({
         name: operationName
       });
-      
-      const [operationResult] = await operation;
       
       if (operationResult.done) {
         if (operationResult.error) {
@@ -194,7 +192,7 @@ export class VideoAnalyzer {
         };
       }
     } catch (error) {
-      logger.error('❌ Operation 상태 확인 실패:', error);
+      logger.error('❌ Operation 상태 확인 실패:', error as Error);
       return {
         status: 'failed',
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -414,34 +412,9 @@ export class VideoAnalyzer {
       faceDetection,
       personDetection,
       shotChanges,
+      textDetection,
       explicitContent: explicitContent || [] // Ensure explicitContent is always defined
     };
-
-    // 🔍 처리된 데이터 크기 분석
-    const processedData = {
-      objectTracking,
-      speechTranscription,
-      faceDetection,
-      personDetection,
-      shotChanges,
-      textDetection
-    };
-
-    const processedDataSize = JSON.stringify(processedData).length;
-    logger.info(`📊 Processed Data Size: ${(processedDataSize / 1024 / 1024).toFixed(2)}MB`);
-    logger.info(`📊 Data Compression Ratio: ${((rawDataSize - processedDataSize) / rawDataSize * 100).toFixed(1)}% reduced`);
-    
-    // 🔍 처리된 데이터 구조 요약
-    logger.info('📊 Processed Data Summary:', {
-      objectTracking: `${objectTracking.length} objects`,
-      speechTranscription: `${speechTranscription.length} segments`,
-      faceDetection: `${faceDetection.length} faces`,
-      personDetection: `${personDetection.length} persons`,
-      shotChanges: `${shotChanges.length} shots`,
-      textDetection: `${textDetection.length} texts`
-    });
-
-    return processedData;
   }
 
   /**
