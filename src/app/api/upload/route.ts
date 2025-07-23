@@ -138,11 +138,13 @@ export async function POST(request: NextRequest) {
     let session: PlayAnalysisSession;
     try {
       const gcpStorage = new GCPDataStorage();
-      const sessionId = await gcpStorage.createSessionWithUserInfo(
+      const createdSession = await gcpStorage.createSessionWithUserInfo(
         fileName,        // originalName (실제 파일명)
         fileSize,        // fileSize (숫자)
         userInfo         // userInfo (객체)
       );
+      
+      const sessionId = createdSession.sessionId;
 
       console.log(`✅ Session created successfully:`, {
         sessionId,
@@ -152,8 +154,8 @@ export async function POST(request: NextRequest) {
       });
 
       // 세션 생성 확인
-      const createdSession = await gcpStorage.getSession(sessionId);
-      if (!createdSession) {
+      const verifiedSession = await gcpStorage.getSession(sessionId);
+      if (!verifiedSession) {
         console.error(`❌ Failed to verify session creation: ${sessionId}`);
         throw new Error('세션 생성 후 검증 실패');
       }
